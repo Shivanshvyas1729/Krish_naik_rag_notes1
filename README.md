@@ -46,8 +46,7 @@
 
 ---
 
-<a id="topic-1-langchain-v11"></a>
-<details><summary>1. 08_langchain_updated_version1.1 — Needed for stateful agent workflows, streaming, tool binding & graph-based execution</summary>
+<details><summary><a id="topic-1-langchain-v11" name="topic-1-langchain-v11"></a>1. 08_langchain_updated_version1.1 — Needed for stateful agent workflows, streaming, tool binding & graph-based execution</summary>
 detailed ->   https://github.com/Shivanshvyas1729/Krish_naik_rag_notes/blob/main/langchain_updates.1.1.md
 # LangChain v1.1 & LangGraph Agent Architecture
 
@@ -376,8 +375,7 @@ agent = create_agent(
 </details>
 
 
-<a id="topic-2-rag"></a>
-<details><summary>2. RAG (Retrieval-Augmented Generation) — Needed to ground LLM responses with private/up-to-date knowledge and prevent hallucinations</summary>
+<details><summary><a id="topic-2-rag" name="topic-2-rag"></a>2. RAG (Retrieval-Augmented Generation) — Needed to ground LLM responses with private/up-to-date knowledge and prevent hallucinations</summary>
 
 
 # Study Notes: Retrieval-Augmented Generation (RAG)
@@ -962,8 +960,7 @@ Content: It utilizes a reciprocal rank fusion algorithm to merge candidate sets 
  </details>
 
 
-<a id="topic-3-finetuning-vs-rag"></a>
-<details><summary>3. Fine-Tuning vs. RAG — Needed to decide between adapting LLM style/tone (Fine-Tuning) vs. injecting dynamic external knowledge (RAG)</summary>
+<details><summary><a id="topic-3-finetuning-vs-rag" name="topic-3-finetuning-vs-rag"></a>3. Fine-Tuning vs. RAG — Needed to decide between adapting LLM style/tone (Fine-Tuning) vs. injecting dynamic external knowledge (RAG)</summary>
 
 
 ---
@@ -1101,8 +1098,7 @@ A comparison of the three primary ways to customize Large Language Models (LLMs)
   </details>
 
 
-<a id="topic-4-vector-db"></a>
-<details><summary>4. Vector Store vs. Vector Databases — Needed for high-dimensional embedding storage and fast semantic similarity search at scale</summary>
+<details><summary><a id="topic-4-vector-db" name="topic-4-vector-db"></a>4. Vector Store vs. Vector Databases — Needed for high-dimensional embedding storage and fast semantic similarity search at scale</summary>
 
 # Study Notes: Vector Stores vs. Vector Databases
 
@@ -1424,13 +1420,18 @@ res2 = rag_conversational_chain.invoke({"input": q2, "chat_history": chat_histor
 print("Turn 2 Answer:", res2["answer"])
 ```
 
-#### 🎯 Step 8: When to Use vs. When NOT to Use `format_docs` in LangChain <a id="format-docs-deep-dive"></a>
+</details>
+
+<br>
+
+<details open id="format-docs-deep-dive">
+<summary><a id="format-docs-deep-dive" name="format-docs-deep-dive"></a><b>🎯 LangChain format_docs Deep-Dive: When to Use vs. When NOT to Use</b></summary>
 
 In LangChain, deciding whether you need a `format_docs` helper depends entirely on **how your chain is constructed**:
 
 ---
 
-##### 1. **When to USE `format_docs`** 
+### 1. **When to USE `format_docs`** 
 👉 **When building custom LCEL (LangChain Expression Language) chains directly.**
 
 ```python
@@ -1443,7 +1444,7 @@ rag_chain = (
 )
 ```
 
-###### Why it's needed here:
+#### Why it's needed here:
 - `retriever` returns a Python list of `Document` objects (`List[Document]`).
 - A standard `ChatPromptTemplate` expects a **string** for `{context}`.
 - If you pass `List[Document]` directly without `format_docs`, the prompt will receive the raw Python object representation (e.g. `[Document(page_content='...'), ...]`), wasting tokens and confusing the LLM.
@@ -1458,7 +1459,7 @@ rag_chain = (
 
 ---
 
-##### 2. **When NOT to use `format_docs`**
+### 2. **When NOT to use `format_docs`**
 👉 **When using LangChain’s pre-built helper chains like `create_stuff_documents_chain` and `create_retrieval_chain`.**
 
 ```python
@@ -1467,7 +1468,7 @@ question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
 rag_conversational_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
 ```
 
-###### Why you don't need it here:
+#### Why you don't need it here:
 - `create_stuff_documents_chain` is built specifically to accept `List[Document]` as its input.
 - **It formats documents internally** using its default document template (`{page_content}`) and joins them with `\n\n`.
 - `create_retrieval_chain` passes the raw `docs` into `create_stuff_documents_chain`, and also preserves the original `List[Document]` in the final output dictionary (`response["context"]`), allowing you to inspect sources, scores, or metadata later.
@@ -1475,7 +1476,7 @@ rag_conversational_chain = create_retrieval_chain(history_aware_retriever, quest
 
 ---
 
-##### Quick Comparison Summary
+### Quick Comparison Summary
 
 | Feature | LCEL Chain (`retriever \| format_docs \| prompt`) | Pre-built Chain (`create_stuff_documents_chain`) |
 | :--- | :--- | :--- |
@@ -1486,6 +1487,8 @@ rag_conversational_chain = create_retrieval_chain(history_aware_retriever, quest
 | **Best suited for** | Lightweight, fully customized, streaming LCEL pipelines | Standard RAG, multi-turn chat history, and source tracking |
 
 </details>
+
+<br>
 
 ---
 
@@ -2253,8 +2256,7 @@ LangChain provides a unified interface across all vector stores. Any vector stor
 </details>
 
 
-<a id="topic-5-semantic-chunking"></a>
-<details><summary>5. Semantic Chunking — Needed to split documents by topic/meaning boundaries instead of fixed token lengths to preserve context</summary>
+<details><summary><a id="topic-5-semantic-chunking" name="topic-5-semantic-chunking"></a>5. Semantic Chunking — Needed to split documents by topic/meaning boundaries instead of fixed token lengths to preserve context</summary>
 
 *Semantic Chunking is a text-splitting technique that divides content based on meaning instead of fixed size or paragraphs.*
   
@@ -2303,8 +2305,7 @@ Given the input text:
 </details>
 
 
-<a id="topic-6-hybrid-search"></a>
-<details><summary>6. Dense + Sparse Retrieval (Hybrid Search) — Needed to combine keyword accuracy (BM25) with semantic intent (Embeddings) for robust search</summary>
+<details><summary><a id="topic-6-hybrid-search" name="topic-6-hybrid-search"></a>6. Dense + Sparse Retrieval (Hybrid Search) — Needed to combine keyword accuracy (BM25) with semantic intent (Embeddings) for robust search</summary>
 
 
 ## Hybrid Search Strategies: Dense & Sparse Retrieval
@@ -2383,8 +2384,7 @@ Hybrid search calculates a final score by combining the dense and sparse scores 
 </details>
 
 
-<a id="topic-7-reranking"></a>
-<details><summary>7. Reranking — Needed to re-order initial retrieved documents using cross-encoders to improve precision and eliminate false positives</summary>
+<details><summary><a id="topic-7-reranking" name="topic-7-reranking"></a>7. Reranking — Needed to re-order initial retrieved documents using cross-encoders to improve precision and eliminate false positives</summary>
 ## Study Notes: Hybrid Search Strategies & Re-Ranking Techniques
 <img width="537" height="641" alt="image" src="https://github.com/user-attachments/assets/68528d95-1e6b-41b5-86c4-ad2136e86cb0" />
 
@@ -2444,8 +2444,7 @@ The workflow is divided into three distinct stages:
 </details>
 
 
-<a id="topic-8-mmr"></a>
-<details><summary>8. MMR (Maximal Marginal Relevance) — Needed to balance document relevance with diversity and prevent retrieving duplicate context</summary>
+<details><summary><a id="topic-8-mmr" name="topic-8-mmr"></a>8. MMR (Maximal Marginal Relevance) — Needed to balance document relevance with diversity and prevent retrieving duplicate context</summary>
 
 
 
@@ -2535,8 +2534,7 @@ $$\text{MMR}(D3) = (0.7 \cdot 0.80) - (0.3 \cdot 0.30) = 0.560 - 0.090 = \mathbf
 </details>
 
 
-<a id="topic-9-query-expansion"></a>
-<details><summary>9. Query Expansion Technique — Needed to generate query variations and synonyms to catch documents using different phrasing</summary>
+<details><summary><a id="topic-9-query-expansion" name="topic-9-query-expansion"></a>9. Query Expansion Technique — Needed to generate query variations and synonyms to catch documents using different phrasing</summary>
 
  **Query Expansion Technique** 
 
@@ -2587,8 +2585,7 @@ $$\text{Better Query} \longrightarrow \text{Better Retrieved Chunks} \longrighta
 </details>
 
 
-<a id="topic-10-query-decomposition"></a>
-<details><summary>10. Query Decomposition — Needed to break complex, multi-part questions into simpler sub-queries for targeted multi-step retrieval</summary>
+<details><summary><a id="topic-10-query-decomposition" name="topic-10-query-decomposition"></a>10. Query Decomposition — Needed to break complex, multi-part questions into simpler sub-queries for targeted multi-step retrieval</summary>
   
  **Query Decomposition** 
 
@@ -2643,8 +2640,7 @@ $$\text{Better Query} \longrightarrow \text{Better Retrieved Chunks} \longrighta
 </details>
 
 
-<a id="topic-11-hyde"></a>
-<details><summary>11. HyDE (Hypothetical Document Embeddings) — Needed to bridge vocabulary gaps in short/vague queries by embedding LLM-generated hypothetical answers</summary>
+<details><summary><a id="topic-11-hyde" name="topic-11-hyde"></a>11. HyDE (Hypothetical Document Embeddings) — Needed to bridge vocabulary gaps in short/vague queries by embedding LLM-generated hypothetical answers</summary>
 **Hypothetical Document Embeddings (HyDE)** :
 
 ---
@@ -2700,8 +2696,7 @@ HyDE is especially useful when:
 </details>
 
 
-<a id="topic-12-multimodal-ai"></a>
-<details><summary>12. Multimodal AI — Needed to process and integrate heterogeneous data formats (text, images, audio, tables) in unified LLM workflows</summary>
+<details><summary><a id="topic-12-multimodal-ai" name="topic-12-multimodal-ai"></a>12. Multimodal AI — Needed to process and integrate heterogeneous data formats (text, images, audio, tables) in unified LLM workflows</summary>
 
 
 <img width="692" height="915" alt="image" src="https://github.com/user-attachments/assets/bf8314b0-7b20-41c0-a098-f93f49f12c80" />
@@ -2913,8 +2908,7 @@ HyDE is especially useful when:
 </details>
 
 
-<a id="topic-13-multimodal-rag-architecture"></a>
-<details><summary>13. Multimodal RAG & AI Architecture — Needed to index and retrieve image-rich documents, charts, and visual PDFs (e.g., CLIP / ColPali)</summary>
+<details><summary><a id="topic-13-multimodal-rag-architecture" name="topic-13-multimodal-rag-architecture"></a>13. Multimodal RAG & AI Architecture — Needed to index and retrieve image-rich documents, charts, and visual PDFs (e.g., CLIP / ColPali)</summary>
 
 # Multimodal RAG & Multimodal AI
 
@@ -2995,8 +2989,7 @@ flowchart TD
 </details>
 
 
-<a id="topic-14-agentic-ai"></a>
-<details><summary>14. AI Agents vs. Agentic AI — Needed to distinguish simple tool-calling bots from autonomous, goal-driven, multi-step agent systems</summary>
+<details><summary><a id="topic-14-agentic-ai" name="topic-14-agentic-ai"></a>14. AI Agents vs. Agentic AI — Needed to distinguish simple tool-calling bots from autonomous, goal-driven, multi-step agent systems</summary>
 
 
 ## Key Definitions
@@ -3048,8 +3041,7 @@ flowchart TD
 </details>
 
 
-<a id="topic-15-agentic-sdlc"></a>
-<details><summary>15. Example: Why We Need Agentic AI (Software Development Workflow) — Needed to demonstrate end-to-end autonomous software development, testing, and deployment automation</summary>
+<details><summary><a id="topic-15-agentic-sdlc" name="topic-15-agentic-sdlc"></a>15. Example: Why We Need Agentic AI (Software Development Workflow) — Needed to demonstrate end-to-end autonomous software development, testing, and deployment automation</summary>
 --
 
 

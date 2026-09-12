@@ -9,70 +9,70 @@
 
 | Project Stage | Pipeline Phase | Core Techniques & Focus | Direct Section Link |
 | :---: | :--- | :--- | :--- |
-| **Stage 1** | **Multi-Source Data Ingestion & Parsing** | Ingesting raw unstructured, semi-structured, and tabular data | [1. Data Ingestion](#1-data-ingestion--splitting-1-dataingestionipynb) • [2. PDF Parsing](#2-pdf-parsing-2-dataparsingpdfipynb) • [3. Word Docs](#3-word-document-parsing-3-dataparsingdocipynb) • [4. CSV/Excel](#4-csv--excel-structured-parsing-4-csvexcelparsingipynb) • [5. JSON](#5-json-parsing-5-jsonparsingipynb) • [6. Relational DB](#6-database-parsing-6-databaseparsingipynb) |
-| **Stage 2** | **Document Splitting & Chunking Strategies** | Boundary preservation, token limits, and meaning-aware splitting | [10 Core Chunking Strategies](#-10-core-chunking-strategies-in-rag) • [Semantic Chunking](#10-semantic-chunking-91-semantichunkingipynb) |
-| **Stage 3** | **Vector Embeddings & Representation** | High-dimensional semantic vectors and dense embeddings | [Embedding Models (OpenAI & HF)](#7-embedding-models-70-embeddingipynb--71-openaiembeddingsipynb) |
-| **Stage 4** | **Vector Storage & Database Indexing** | Local vector stores vs cloud databases, CRUD, and distance metrics | [Vector Stores vs Vector Databases](#vector-store-vs-vector-database) • [ChromaDB](#1-chroma-langchain_chromachroma) • [FAISS](#2-faiss-langchain_communityvectorstoresfaiss) • [Pinecone](#3-pinecone-langchain_pineconepineconevectorstore) • [InMemory](#4-inmemoryvectorstore-langchain_corevectorstoresinmemoryvectorstore) • [Qdrant](#5-qdrant-langchain_qdrantqdrantvectorstore--qdrant_clientqdrantclient) • [Distance Metrics](#understanding-vector-distance-metrics--similarity-scores) |
-| **Stage 5** | **Pre-Retrieval Query Enhancement** | Bridging semantic gaps, multi-hop sub-queries, and hypothetical answers | [12.1 Query Expansion](#121-query-expansion-1-queryexpansionipynb) • [12.2 Query Decomposition](#122-query-decomposition-2-querydecompositionipynb) • [12.3 HyDE (Hypothetical Doc Embeddings)](#123-hypothetical-document-embeddings---hyde-3-hydeipynb) |
-| **Stage 6** | **Advanced Retrieval & Precision Ranking** | Dense + Sparse hybrid fusion, cross-encoder re-ranking, and diversity | [11.1 Dense + Sparse Hybrid Search](#111-hybrid-retriever--dense--sparse-combination-1-densesparseipynb) • [11.2 Re-ranking](#112-re-ranking-hybrid-search-strategies-2-reranking-1ipynb) • [11.3 MMR (Maximal Marginal Relevance)](#113-maximal-marginal-relevance---mmr-3-mmripynb) • [11.4 Production Search Strategies](#114-rag-search-strategies--production-search-pipelines) |
-| **Stage 7** | **RAG Chain Construction & Memory** | LCEL composition, conversational memory, and built-in retrieval helpers | [Custom LCEL RAG Chain](#2-custom-rag-chain-using-lcel-langchain-expression-language) • [Conversational RAG (History)](#3-conversational-rag-chain-with-historymemory) • [Modern Classic Retrieval Chain](#4-modern-rag-chain-using-langchain-classic-retrieval-chain) • [RAG Chain Types Comparison](#rag-chain-types-comparison) |
-| **Stage 7.1** | **Chain Architecture Decision Framework** | 🎯 **Deep Dive: When to Use vs. When NOT to Use `format_docs`** (LCEL vs. Pre-built Helpers Comparison Matrix) | [format_docs Decision Guide](#5-when-to-use-vs-when-not-to-use-format_docs-in-langchain) |
+| **Stage 1** | **Multi-Source Data Ingestion & Parsing** | Ingesting raw unstructured, semi-structured, and tabular data | [1. Data Ingestion](#data-ingestion) • [2. PDF Parsing](#pdf-parsing) • [3. Word Docs](#word-parsing) • [4. CSV/Excel](#csv-excel-parsing) • [5. JSON](#json-parsing) • [6. Relational DB](#database-parsing) |
+| **Stage 2** | **Document Splitting & Chunking Strategies** | Boundary preservation, token limits, and meaning-aware splitting | [10 Core Chunking Strategies](#chunking-strategies) • [Semantic Chunking](#semantic-chunking) |
+| **Stage 3** | **Vector Embeddings & Representation** | High-dimensional semantic vectors and dense embeddings | [Embedding Models (OpenAI & HF)](#embedding-models) |
+| **Stage 4** | **Vector Storage & Database Indexing** | Local vector stores vs cloud databases, CRUD, and distance metrics | [Vector Stores vs Vector Databases](#vector-store-vs-db) • [ChromaDB](#chroma-db) • [FAISS](#faiss) • [Pinecone](#pinecone) • [InMemory](#inmemory-store) • [Qdrant](#qdrant) • [Distance Metrics](#distance-metrics) |
+| **Stage 5** | **Pre-Retrieval Query Enhancement** | Bridging semantic gaps, multi-hop sub-queries, and hypothetical answers | [12.1 Query Expansion](#query-expansion) • [12.2 Query Decomposition](#query-decomposition) • [12.3 HyDE (Hypothetical Doc Embeddings)](#hyde) |
+| **Stage 6** | **Advanced Retrieval & Precision Ranking** | Dense + Sparse hybrid fusion, cross-encoder re-ranking, and diversity | [11.1 Dense + Sparse Hybrid Search](#dense-sparse-retriever) • [11.2 Re-ranking](#reranking) • [11.3 MMR (Maximal Marginal Relevance)](#mmr) • [11.4 Production Search Strategies](#production-search) |
+| **Stage 7** | **RAG Chain Construction & Memory** | LCEL composition, conversational memory, and built-in retrieval helpers | [Custom LCEL RAG Chain](#lcel-rag-chain) • [Conversational RAG (History)](#conversational-rag) • [Modern Classic Retrieval Chain](#classic-rag-chain) • [RAG Chain Types Comparison](#chain-types-comparison) |
+| **Stage 7.1** | **Chain Architecture Decision Framework** | 🎯 **Deep Dive: When to Use vs. When NOT to Use `format_docs`** (LCEL vs. Pre-built Helpers Comparison Matrix) | [format_docs Decision Guide](#format-docs-guide) |
 | **Stage 8** | **Multimodal RAG & Visual Intelligence** | Cross-modal text-to-image retrieval, CLIP joint space, and Vision LLMs | [13. Multimodal RAG (notes2.md)](file:///c:/Users/DELL/Desktop/rag_praacties/notes2.md#13-multimodal-rag-07_multimodle-rag) |
 
 ---
 
 ## 📋 Table of Contents (Module-by-Module)
 
-1. [Data Ingestion & Splitting](#1-data-ingestion--splitting-1-dataingestionipynb)
-   * [10 Core Chunking Strategies in RAG](#-10-core-chunking-strategies-in-rag)
+1. [Data Ingestion & Splitting](#data-ingestion)
+   * [10 Core Chunking Strategies in RAG](#chunking-strategies)
 
-2. [PDF Parsing](#2-pdf-parsing-2-dataparsingpdfipynb)
+2. [PDF Parsing](#pdf-parsing)
 
-3. [Word Document Parsing](#3-word-document-parsing-3-dataparsingdocipynb)
+3. [Word Document Parsing](#word-parsing)
 
-4. [CSV & Excel Structured Parsing](#4-csv--excel-structured-parsing-4-csvexcelparsingipynb)
+4. [CSV & Excel Structured Parsing](#csv-excel-parsing)
 
-5. [JSON Parsing](#5-json-parsing-5-jsonparsingipynb)
+5. [JSON Parsing](#json-parsing)
 
-6. [Database Parsing](#6-database-parsing-6-databaseparsingipynb)
+6. [Database Parsing](#database-parsing)
 
-7. [Embedding Models](#7-embedding-models-70-embeddingipynb--71-openaiembeddingsipynb)
+7. [Embedding Models](#embedding-models)
 
-8. [Vector Databases](#8-vector-databases-81---84)
-   * [ChromaDB (`langchain_chroma.Chroma`)](#1-chroma-langchain_chromachroma)
-   * [FAISS (`langchain_community.vectorstores.FAISS`)](#2-faiss-langchain_communityvectorstoresfaiss)
-   * [Pinecone (`langchain_pinecone.PineconeVectorStore`)](#3-pinecone-langchain_pineconepineconevectorstore)
-   * [InMemoryVectorStore](#4-inmemoryvectorstore-langchain_corevectorstoresinmemoryvectorstore)
-   * [Qdrant (`langchain_qdrant.QdrantVectorStore`)](#5-qdrant-langchain_qdrantqdrantvectorstore--qdrant_clientqdrantclient)
-   * [Vector Distance Metrics & Similarity Scores](#understanding-vector-distance-metrics--similarity-scores)
+8. [Vector Databases](#vector-databases)
+   * [ChromaDB (`langchain_chroma.Chroma`)](#chroma-db)
+   * [FAISS (`langchain_community.vectorstores.FAISS`)](#faiss)
+   * [Pinecone (`langchain_pinecone.PineconeVectorStore`)](#pinecone)
+   * [InMemoryVectorStore](#inmemory-store)
+   * [Qdrant (`langchain_qdrant.QdrantVectorStore`)](#qdrant)
+   * [Vector Distance Metrics & Similarity Scores](#distance-metrics)
 
-9. [RAG Chains & Conversational Memory](#9-rag-chains--conversational-memory-81-chromadbipynb)
-   * [1. LLM / Model Initialization Methods](#1-llm--model-initialization-methods)
-   * [2. Custom RAG Chain using LCEL (LangChain Expression Language)](#2-custom-rag-chain-using-lcel-langchain-expression-language)
-   * [3. Conversational RAG Chain (With History/Memory)](#3-conversational-rag-chain-with-historymemory)
-   * [4. Modern RAG Chain (Using LangChain Classic Retrieval Chain)](#4-modern-rag-chain-using-langchain-classic-retrieval-chain)
-   * [5. When to Use vs. When NOT to Use `format_docs` in LangChain](#5-when-to-use-vs-when-not-to-use-format_docs-in-langchain)
+9. [RAG Chains & Conversational Memory](#rag-chains)
+   * [1. LLM / Model Initialization Methods](#llm-init-methods)
+   * [2. Custom RAG Chain using LCEL (LangChain Expression Language)](#lcel-rag-chain)
+   * [3. Conversational RAG Chain (With History/Memory)](#conversational-rag)
+   * [4. Modern RAG Chain (Using LangChain Classic Retrieval Chain)](#classic-rag-chain)
+   * [5. When to Use vs. When NOT to Use `format_docs` in LangChain](#format-docs-guide)
 
-10. [Semantic Chunking](#10-semantic-chunking-91-semantichunkingipynb)
-    * [RAG Chain Types Comparison](#rag-chain-types-comparison)
-    * [Vector Store vs Vector Database](#vector-store-vs-vector-database)
+10. [Semantic Chunking](#semantic-chunking)
+    * [RAG Chain Types Comparison](#chain-types-comparison)
+    * [Vector Store vs Vector Database](#vector-store-vs-db)
 
-11. [Hybrid Search & Re-ranking](#11-hybrid-search--re-ranking-05_hybrid-search)
-    * [11.1 Hybrid Retriever – Dense & Sparse Combination](#111-hybrid-retriever--dense--sparse-combination-1-densesparseipynb)
-    * [11.2 Re-ranking Hybrid Search Strategies](#112-re-ranking-hybrid-search-strategies-2-reranking-1ipynb)
-    * [11.3 Maximal Marginal Relevance - MMR](#113-maximal-marginal-relevance---mmr-3-mmripynb)
-    * [11.4 RAG Search Strategies & Production Search Pipelines](#114-rag-search-strategies--production-search-pipelines)
+11. [Hybrid Search & Re-ranking](#hybrid-search)
+    * [11.1 Hybrid Retriever – Dense & Sparse Combination](#dense-sparse-retriever)
+    * [11.2 Re-ranking Hybrid Search Strategies](#reranking)
+    * [11.3 Maximal Marginal Relevance - MMR](#mmr)
+    * [11.4 RAG Search Strategies & Production Search Pipelines](#production-search)
 
-12. [Query Enhancement & Advanced RAG](#12-query-enhancement--advanced-rag-06_query_enhancment)
-    * [12.1 Query Expansion](#121-query-expansion-1-queryexpansionipynb)
-    * [12.2 Query Decomposition](#122-query-decomposition-2-querydecompositionipynb)
-    * [12.3 Hypothetical Document Embeddings (HyDE)](#123-hypothetical-document-embeddings---hyde-3-hydeipynb)
+12. [Query Enhancement & Advanced RAG](#query-enhancement)
+    * [12.1 Query Expansion](#query-expansion)
+    * [12.2 Query Decomposition](#query-decomposition)
+    * [12.3 Hypothetical Document Embeddings (HyDE)](#hyde)
 
 13. [Multimodal RAG (Transferred to notes2.md)](file:///c:/Users/DELL/Desktop/rag_praacties/notes2.md#13-multimodal-rag-07_multimodle-rag)
 
 ---
 
-## 1. Data Ingestion & Splitting (`1-dataingestion.ipynb`)
+## 1. Data Ingestion & Splitting (`1-dataingestion.ipynb`) <a id="data-ingestion" name="data-ingestion"></a>
 ### Imports
 ```python
 import tempfile
@@ -151,7 +151,7 @@ bulk_documents = dir_loader.load()
 
 <br>
 
-### 🧩 10 Core Chunking Strategies in RAG
+### 🧩 10 Core Chunking Strategies in RAG <a id="chunking-strategies" name="chunking-strategies"></a>
 
 > 💡 **For RAG, the most commonly useful starting points are:**
 > **Recursive + overlap**, **semantic**, and **document-structure-based chunking**.
@@ -668,7 +668,7 @@ Content: It utilizes a reciprocal rank fusion algorithm to merge candidate sets 
 
 <br>
 
-## 2. PDF Parsing (`2-dataparsingpdf.ipynb`)
+## 2. PDF Parsing (`2-dataparsingpdf.ipynb`) <a id="pdf-parsing" name="pdf-parsing"></a>
 ### Imports
 ```python
 from langchain_community.document_loaders import PyPDFLoader, PyMuPDFLoader
@@ -693,7 +693,7 @@ pages = loader.load()
 
 <br>
 
-## 3. Word Document Parsing (`3-dataparsingdoc.ipynb`)
+## 3. Word Document Parsing (`3-dataparsingdoc.ipynb`) <a id="word-parsing" name="word-parsing"></a>
 ### Imports
 ```python
 from langchain_community.document_loaders import Docx2txtLoader, UnstructuredWordDocumentLoader
@@ -726,7 +726,7 @@ element_docs = unstructured_loader.load()
 
 <br>
 
-## 4. CSV & Excel Structured Parsing (`4-csvexcelparsing.ipynb`)
+## 4. CSV & Excel Structured Parsing (`4-csvexcelparsing.ipynb`) <a id="csv-excel-parsing" name="csv-excel-parsing"></a>
 ### Imports
 ```python
 from langchain_community.document_loaders import CSVLoader, UnstructuredExcelLoader
@@ -752,7 +752,7 @@ docs = loader.load()
 
 <br>
 
-## 5. JSON Parsing (`5-jsonparsing.ipynb`)
+## 5. JSON Parsing (`5-jsonparsing.ipynb`) <a id="json-parsing" name="json-parsing"></a>
 ### Imports
 ```python
 from langchain_community.document_loaders import JSONLoader
@@ -779,7 +779,7 @@ docs = loader.load()
 
 <br>
 
-## 6. Database Parsing (`6-databaseparsing.ipynb`)
+## 6. Database Parsing (`6-databaseparsing.ipynb`) <a id="database-parsing" name="database-parsing"></a>
 ### Imports
 ```python
 from langchain_community.utilities import SQLDatabase
@@ -805,7 +805,7 @@ docs = loader.load()
 
 <br>
 
-## 7. Embedding Models (`7.0-embedding.ipynb` & `7.1-openaiembeddings.ipynb`)
+## 7. Embedding Models (`7.0-embedding.ipynb` & `7.1-openaiembeddings.ipynb`) <a id="embedding-models" name="embedding-models"></a>
 ### 🔑 Setting up API Keys for Cloud Embedding Models (e.g., OpenAI)
 
 To use API-based embedding models like `OpenAIEmbeddings`, you need to set up your API key. There are two primary methods:
@@ -871,7 +871,7 @@ vector_docs = openai_embeddings.embed_documents(["doc chunk 1", "doc chunk 2"])
 
 <br>
 
-## 8. Vector Databases (`8.1` - `8.4`)
+## 8. Vector Databases (`8.1` - `8.4`) <a id="vector-databases" name="vector-databases"></a>
 
 ### Overview & Comparison
 Vector databases store and index high-dimensional vector embeddings generated by machine learning models to perform fast nearest-neighbor similarity searches (like Cosine Similarity or Euclidean L2 Distance).
@@ -918,7 +918,7 @@ Vector databases store and index high-dimensional vector embeddings generated by
 
 ---
 
-### 1. Chroma (`langchain_chroma.Chroma`)
+### 1. Chroma (`langchain_chroma.Chroma`) <a id="chroma-db" name="chroma-db"></a>
 Chroma is an open-source, developer-friendly vector database. It supports 3 deployment modes:
 * 🟢 **Embedded Mode**: Runs inside your Python process and persists data to disk via SQLite/Parquet (ideal for local development).
 * 🟡 **Client/Server Mode**: Runs Chroma as a standalone Docker container or separate microservice (`HttpClient`).
@@ -1019,7 +1019,7 @@ db.delete(ids=["doc_id_1", "doc_id_2"])
 
 ---
 
-### 2. FAISS (`langchain_community.vectorstores.FAISS`)
+### 2. FAISS (`langchain_community.vectorstores.FAISS`) <a id="faiss" name="faiss"></a>
 FAISS (Facebook AI Similarity Search) is a high-performance C++ library with Python bindings designed for fast similarity search and vector clustering.
 
 #### Imports
@@ -1083,7 +1083,7 @@ db.save_local(folder_path="faiss_index")
 
 ---
 
-### 3. Pinecone (`langchain_pinecone.PineconeVectorStore`)
+### 3. Pinecone (`langchain_pinecone.PineconeVectorStore`) <a id="pinecone" name="pinecone"></a>
 Pinecone is a cloud-native, fully-managed serverless vector database designed for production scaling, high availability, and metadata pre-filtering.
 
 #### Imports
@@ -1139,7 +1139,7 @@ class PineconeVectorStoreManager:
 
 ---
 
-### 4. InMemoryVectorStore (`langchain_core.vectorstores.InMemoryVectorStore`)
+### 4. InMemoryVectorStore (`langchain_core.vectorstores.InMemoryVectorStore`) <a id="inmemory-store" name="inmemory-store"></a>
 `InMemoryVectorStore` is the simplest zero-dependency transient vector store provided natively by `langchain-core` (LangChain 0.2+ standard). It stores vectors in a plain Python dictionary in memory (RAM).
 
 #### Imports
@@ -1184,7 +1184,7 @@ results = loaded_db.similarity_search("What is RAG?", k=2)
 
 ---
 
-### 5. Qdrant (`langchain_qdrant.QdrantVectorStore` & `qdrant_client.QdrantClient`)
+### 5. Qdrant (`langchain_qdrant.QdrantVectorStore` & `qdrant_client.QdrantClient`) <a id="qdrant" name="qdrant"></a>
 Qdrant is an enterprise-grade open-source vector search engine and database written in Rust. It offers extreme vector search speed, rich payload (metadata) filtering, memory quantization (up to 95% RAM compression), and hybrid dense + sparse retrieval.
 
 Qdrant supports **4 flexible execution modes**:
@@ -1344,7 +1344,7 @@ print(rag_chain.invoke("Explain quantization in Qdrant"))
 
 ---
 
-### Understanding Vector Distance Metrics & Similarity Scores
+### Understanding Vector Distance Metrics & Similarity Scores <a id="distance-metrics" name="distance-metrics"></a>
 
 Similarity search relies on mathematical distance metrics between high-dimensional vector embeddings:
 
@@ -1367,7 +1367,7 @@ Similarity search relies on mathematical distance metrics between high-dimension
 
 ---
 
-## 9. RAG Chains & Conversational Memory (`8.1-chromadb.ipynb`)
+## 9. RAG Chains & Conversational Memory (`8.1-chromadb.ipynb`) <a id="rag-chains" name="rag-chains"></a>
 
 ![RAG Architecture](assets/image-2.png)
 
@@ -1392,7 +1392,7 @@ from langchain_classic.chains.combine_documents import create_stuff_documents_ch
 
 ### How to Use
 
-#### 1. LLM / Model Initialization Methods
+#### 1. LLM / Model Initialization Methods <a id="llm-init-methods" name="llm-init-methods"></a>
 
 **Method A: Using LangChain's Factory Function**
 ```python
@@ -1419,7 +1419,7 @@ response = client.chat.completions.create(
 print(response.choices[0].message.content)
 ```
 
-#### 2. Custom RAG Chain using LCEL (LangChain Expression Language)
+#### 2. Custom RAG Chain using LCEL (LangChain Expression Language) <a id="lcel-rag-chain" name="lcel-rag-chain"></a>
 
 **LCEL (LangChain Expression Language)** is a declarative way to compose and chain artificial intelligence building blocks—such as prompts, models, and parsers—using the pipe operator (`|`). [[1](https://www.geeksforgeeks.org/artificial-intelligence/langchain/), [2](https://www.langchain.com/blog/langchain-expression-language)]
 
@@ -1490,7 +1490,7 @@ def query_rag_lcel(question):
 query_rag_lcel("What are the key concepts in reinforcement learning?")
 ```
 
-#### 3. Conversational RAG Chain (With History/Memory)
+#### 3. Conversational RAG Chain (With History/Memory) <a id="conversational-rag" name="conversational-rag"></a>
 
 ##### Imports
 ```python
@@ -1581,7 +1581,7 @@ print(f"Q: What are its main types?")
 print(f"A: {result2['answer']}")
 ```
 
-#### 4. Modern RAG Chain (Using LangChain Classic Retrieval Chain)
+#### 4. Modern RAG Chain (Using LangChain Classic Retrieval Chain) <a id="classic-rag-chain" name="classic-rag-chain"></a>
 ![alt text](image-1.png)
 The classic RAG chain uses helper functions like `create_stuff_documents_chain` and `create_retrieval_chain` to quickly stitch together a retriever, prompt, and LLM.
 
@@ -1640,7 +1640,7 @@ rag_chain = create_retrieval_chain(retriever, document_chain)
 response = rag_chain.invoke({"input": "What is Deep Learning"})
 ```
 
-#### 5. When to Use vs. When NOT to Use `format_docs` in LangChain
+#### 5. When to Use vs. When NOT to Use `format_docs` in LangChain <a id="format-docs-guide" name="format-docs-guide"></a>
 
 In LangChain, deciding whether you need a `format_docs` helper depends entirely on **how your chain is constructed**:
 
@@ -1715,7 +1715,7 @@ rag_conversational_chain = create_retrieval_chain(history_aware_retriever, quest
 
 ---
 
-## 10. Semantic Chunking (`9.1-semantichunking.ipynb`)
+## 10. Semantic Chunking (`9.1-semantichunking.ipynb`) <a id="semantic-chunking" name="semantic-chunking"></a>
 
 ### Imports
 ```python
@@ -1867,7 +1867,7 @@ print(result)
 
 ---
 
-## RAG Chain Types Comparison
+## RAG Chain Types Comparison <a id="chain-types-comparison" name="chain-types-comparison"></a>
 
 | Chain Type | Description | Key Features | Typical Use Cases |
 |------------|-------------|--------------|-------------------|
@@ -1877,7 +1877,7 @@ print(result)
 
 ---
 
-## Vector Store vs Vector Database
+## Vector Store vs Vector Database <a id="vector-store-vs-db" name="vector-store-vs-db"></a>
 
 | Type | Persistence | Scaling | Metadata / Filtering | Typical Scenarios |
 |------|--------------|---------|----------------------|-------------------|
@@ -1893,7 +1893,7 @@ print(result)
 
 ---
 
-## 11. Hybrid Search & Re-ranking (`05_hybrid search`)
+## 11. Hybrid Search & Re-ranking (`05_hybrid search`) <a id="hybrid-search" name="hybrid-search"></a>
 
 ### 🧠 Section Overview: Why Do We Need Hybrid Search & Re-ranking?
 Standard vector search (Dense Retrieval) relies purely on embedding distances (e.g. Cosine similarity). However:
@@ -1905,7 +1905,7 @@ Standard vector search (Dense Retrieval) relies purely on embedding distances (e
 
 ---
 
-### 11.1 Hybrid Retriever – Dense & Sparse Combination (`1-densesparse.ipynb`)
+### 11.1 Hybrid Retriever – Dense & Sparse Combination (`1-densesparse.ipynb`) <a id="dense-sparse-retriever" name="dense-sparse-retriever"></a>
 
 #### 🎯 Why We Need This:
 Neither vector search nor keyword search is perfect on its own. Hybrid retrieval combines both to get the "best of both worlds":
@@ -1960,7 +1960,7 @@ results = hybrid_retriever.invoke("How can I build an application using LLMs?")
 
 ---
 
-### 11.2 Re-ranking Hybrid Search Strategies (`2-reranking (1).ipynb`)
+### 11.2 Re-ranking Hybrid Search Strategies (`2-reranking (1).ipynb`) <a id="reranking" name="reranking"></a>
 
 #### 🎯 Why We Need This:
 Vector similarity search is fast, but it is **not always precise**. It evaluates candidate chunks independently against the query without understanding full cross-attention. 
@@ -2028,7 +2028,7 @@ top_context = rerank_chain.invoke({"question": query, "candidates": formatted_ca
 
 ---
 
-### 11.3 Maximal Marginal Relevance - MMR (`3-mmr.ipynb`)
+### 11.3 Maximal Marginal Relevance - MMR (`3-mmr.ipynb`) <a id="mmr" name="mmr"></a>
 
 #### 🎯 Why We Need This:
 When a vector store contains multiple chunks from the same document or topic, standard top-k similarity search often returns **3 nearly identical chunks**. 
@@ -2075,7 +2075,7 @@ response = rag_chain.invoke({"input": "How does LangChain support agents and mem
 
 <br>
 
-### 11.4 RAG Search Strategies & Production Search Pipelines
+### 11.4 RAG Search Strategies & Production Search Pipelines <a id="production-search" name="production-search"></a>
 
 Retrieval performance directly governs the accuracy and grounding of a RAG pipeline. Below is a comprehensive breakdown of all major search paradigms used across modern AI systems.
 
@@ -2157,7 +2157,7 @@ The most effective and widely adopted stack in enterprise production RAG relies 
 
 <br>
 
-## 12. Query Enhancement & Advanced RAG (`06_query_enhancment`)
+## 12. Query Enhancement & Advanced RAG (`06_query_enhancment`) <a id="query-enhancement" name="query-enhancement"></a>
 
 ### 🧠 Section Overview: Why Do We Need Query Enhancement?
 User questions in real-world applications are often **short**, **ambiguous**, **misspelled**, or **multi-part**.
@@ -2169,7 +2169,7 @@ User questions in real-world applications are often **short**, **ambiguous**, **
 
 ---
 
-### 12.1 Query Expansion (`1-queryexpansion.ipynb`)
+### 12.1 Query Expansion (`1-queryexpansion.ipynb`) <a id="query-expansion" name="query-expansion"></a>
 
 #### 🎯 Why We Need This:
 Users frequently submit short or vague queries (e.g., *"agent orchestration"*). 
@@ -2212,7 +2212,7 @@ retrieved_docs = retriever.invoke(expanded_query)
 
 ---
 
-### 12.2 Query Decomposition (`2-querydecomposition.ipynb`)
+### 12.2 Query Decomposition (`2-querydecomposition.ipynb`) <a id="query-decomposition" name="query-decomposition"></a>
 
 #### 🎯 Why We Need This:
 Complex, multi-part, or comparative questions (e.g., *"How does LangChain memory compare to CrewAI?"*) contain multiple distinct sub-topics.
@@ -2270,7 +2270,7 @@ final_response = final_chain.invoke({"question": "How does LangChain memory comp
 
 ---
 
-### 12.3 Hypothetical Document Embeddings - HyDE (`3-HyDE.ipynb`)
+### 12.3 Hypothetical Document Embeddings - HyDE (`3-HyDE.ipynb`) <a id="hyde" name="hyde"></a>
 
 #### 🎯 Why We Need This:
 Standard vector search compares a **short question vector** (e.g. *"When was NeXT founded?"*) against **long answer paragraph vectors**. 
@@ -2310,7 +2310,7 @@ retrieved_docs = vectorstore.similarity_search(hypothetical_doc, k=3)
 
 ---
 
-## 13. Multimodal RAG (`07_multimodle RAG`)
+## 13. Multimodal RAG (`07_multimodle RAG`) <a id="multimodal-rag" name="multimodal-rag"></a>
 
 > [!NOTE]
 > Section 13 (Multimodal RAG) and subsequent topics have been transferred and expanded in **[notes2.md](file:///c:/Users/DELL/Desktop/rag_praacties/notes2.md)**.
