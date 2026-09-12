@@ -26,27 +26,27 @@
 
 ## 📑 Complete Topic Index (Module Reference)
 
-1. [08_langchain_updated_version1.1 — Modern Agent Architecture & LCEL](#topic-1-langchain-v11)
-2. [RAG (Retrieval-Augmented Generation) — Fundamentals & 10 Chunking Strategies](#topic-2-rag)
-3. [Fine-Tuning vs. RAG — Strategic Customization Framework](#topic-3-finetuning-vs-rag)
-4. [Vector Store vs. Vector Databases — Hands-on Chroma, FAISS, Pinecone, AstraDB, Qdrant](#topic-4-vector-db)
-   * [ChromaDB End-to-End RAG Chains & Conversational Memory](#chroma-rag-chains)
-   * [🎯 LangChain format_docs Deep-Dive: When to Use vs. When NOT to Use](#format-docs-deep-dive)
-5. [Semantic Chunking — Meaning-Based Splitting](#topic-5-semantic-chunking)
-6. [Dense + Sparse Retrieval (Hybrid Search) — BM25 + Vector Fusion](#topic-6-hybrid-search)
-7. [Reranking — Cross-Encoder Precision Re-ordering](#topic-7-reranking)
-8. [MMR (Maximal Marginal Relevance) — Novelty & Diversity Optimization](#topic-8-mmr)
-9. [Query Expansion Technique — LLM-Generated Synonyms & Formulations](#topic-9-query-expansion)
-10. [Query Decomposition — Multi-hop Atomic Breakdown](#topic-10-query-decomposition)
-11. [HyDE (Hypothetical Document Embeddings) — Solving Query-Doc Asymmetry](#topic-11-hyde)
-12. [Multimodal AI — Architecture & Classic OCR vs. Visual-Native ColPali](#topic-12-multimodal-ai)
-13. [Multimodal RAG & AI Architecture — CLIP Joint Embedding & Cross-Modal Retrieval](#topic-13-multimodal-rag-architecture)
-14. [AI Agents vs. Agentic AI — Autonomous Multi-Agent Architectures](#topic-14-agentic-ai)
-15. [Example: Why We Need Agentic AI (Software Development Workflow)](#topic-15-agentic-sdlc)
+1. [Phase 1: 08_langchain_updated_version1.1 — Modern Agent Architecture & LCEL](#topic-1-langchain-v11)
+2. [Phase 2: RAG (Retrieval-Augmented Generation) — Fundamentals & 10 Chunking Strategies](#topic-2-rag)
+3. [Phase 8: Fine-Tuning vs. RAG — Strategic Customization Framework](#topic-3-finetuning-vs-rag)
+4. [Phase 4: Vector Store vs. Vector Databases — Hands-on Chroma, FAISS, Pinecone, AstraDB, Qdrant](#topic-4-vector-db)
+   * [Phase 7: ChromaDB End-to-End RAG Chains & Conversational Memory](#chroma-rag-chains)
+   * [Phase 7.1: 🎯 LangChain format_docs Deep-Dive: When to Use vs. When NOT to Use](#format-docs-deep-dive)
+5. [Phase 3: Semantic Chunking — Meaning-Based Splitting](#topic-5-semantic-chunking)
+6. [Phase 6: Dense + Sparse Retrieval (Hybrid Search) — BM25 + Vector Fusion](#topic-6-hybrid-search)
+7. [Phase 6: Reranking — Cross-Encoder Precision Re-ordering](#topic-7-reranking)
+8. [Phase 6: MMR (Maximal Marginal Relevance) — Novelty & Diversity Optimization](#topic-8-mmr)
+9. [Phase 5: Query Expansion Technique — LLM-Generated Synonyms & Formulations](#topic-9-query-expansion)
+10. [Phase 5: Query Decomposition — Multi-hop Atomic Breakdown](#topic-10-query-decomposition)
+11. [Phase 5: HyDE (Hypothetical Document Embeddings) — Solving Query-Doc Asymmetry](#topic-11-hyde)
+12. [Phase 9: Multimodal AI — Architecture & Classic OCR vs. Visual-Native ColPali](#topic-12-multimodal-ai)
+13. [Phase 9: Multimodal RAG & AI Architecture — CLIP Joint Embedding & Cross-Modal Retrieval](#topic-13-multimodal-rag-architecture)
+14. [Phase 10: AI Agents vs. Agentic AI — Autonomous Multi-Agent Architectures](#topic-14-agentic-ai)
+15. [Phase 11: Example: Why We Need Agentic AI (Software Development Workflow)](#topic-15-agentic-sdlc)
 
 ---
 
-<details><summary><a id="topic-1-langchain-v11" name="topic-1-langchain-v11"></a>1. 08_langchain_updated_version1.1 — Needed for stateful agent workflows, streaming, tool binding & graph-based execution</summary>
+<details><summary><a id="topic-1-langchain-v11" name="topic-1-langchain-v11"></a>Phase 1: 08_langchain_updated_version1.1 — Needed for stateful agent workflows, streaming, tool binding & graph-based execution</summary>
 detailed ->   https://github.com/Shivanshvyas1729/Krish_naik_rag_notes/blob/main/langchain_updates.1.1.md
 # LangChain v1.1 & LangGraph Agent Architecture
 
@@ -375,7 +375,7 @@ agent = create_agent(
 </details>
 
 
-<details><summary><a id="topic-2-rag" name="topic-2-rag"></a>2. RAG (Retrieval-Augmented Generation) — Needed to ground LLM responses with private/up-to-date knowledge and prevent hallucinations</summary>
+<details><summary><a id="topic-2-rag" name="topic-2-rag"></a>Phase 2: RAG (Retrieval-Augmented Generation) — Needed to ground LLM responses with private/up-to-date knowledge and prevent hallucinations</summary>
 
 
 # Study Notes: Retrieval-Augmented Generation (RAG)
@@ -960,7 +960,7 @@ Content: It utilizes a reciprocal rank fusion algorithm to merge candidate sets 
  </details>
 
 
-<details><summary><a id="topic-3-finetuning-vs-rag" name="topic-3-finetuning-vs-rag"></a>3. Fine-Tuning vs. RAG — Needed to decide between adapting LLM style/tone (Fine-Tuning) vs. injecting dynamic external knowledge (RAG)</summary>
+<details><summary><a id="topic-3-finetuning-vs-rag" name="topic-3-finetuning-vs-rag"></a>Phase 8: Fine-Tuning vs. RAG — Needed to decide between adapting LLM style/tone (Fine-Tuning) vs. injecting dynamic external knowledge (RAG)</summary>
 
 
 ---
@@ -1098,7 +1098,7 @@ A comparison of the three primary ways to customize Large Language Models (LLMs)
   </details>
 
 
-<details><summary><a id="topic-4-vector-db" name="topic-4-vector-db"></a>4. Vector Store vs. Vector Databases — Needed for high-dimensional embedding storage and fast semantic similarity search at scale</summary>
+<details><summary><a id="topic-4-vector-db" name="topic-4-vector-db"></a>Phase 4: Vector Store vs. Vector Databases — Needed for high-dimensional embedding storage and fast semantic similarity search at scale</summary>
 
 # Study Notes: Vector Stores vs. Vector Databases
 
@@ -2256,7 +2256,7 @@ LangChain provides a unified interface across all vector stores. Any vector stor
 </details>
 
 
-<details><summary><a id="topic-5-semantic-chunking" name="topic-5-semantic-chunking"></a>5. Semantic Chunking — Needed to split documents by topic/meaning boundaries instead of fixed token lengths to preserve context</summary>
+<details><summary><a id="topic-5-semantic-chunking" name="topic-5-semantic-chunking"></a>Phase 3: Semantic Chunking — Needed to split documents by topic/meaning boundaries instead of fixed token lengths to preserve context</summary>
 
 *Semantic Chunking is a text-splitting technique that divides content based on meaning instead of fixed size or paragraphs.*
   
@@ -2305,7 +2305,7 @@ Given the input text:
 </details>
 
 
-<details><summary><a id="topic-6-hybrid-search" name="topic-6-hybrid-search"></a>6. Dense + Sparse Retrieval (Hybrid Search) — Needed to combine keyword accuracy (BM25) with semantic intent (Embeddings) for robust search</summary>
+<details><summary><a id="topic-6-hybrid-search" name="topic-6-hybrid-search"></a>Phase 6: Dense + Sparse Retrieval (Hybrid Search) — Needed to combine keyword accuracy (BM25) with semantic intent (Embeddings) for robust search</summary>
 
 
 ## Hybrid Search Strategies: Dense & Sparse Retrieval
@@ -2384,7 +2384,7 @@ Hybrid search calculates a final score by combining the dense and sparse scores 
 </details>
 
 
-<details><summary><a id="topic-7-reranking" name="topic-7-reranking"></a>7. Reranking — Needed to re-order initial retrieved documents using cross-encoders to improve precision and eliminate false positives</summary>
+<details><summary><a id="topic-7-reranking" name="topic-7-reranking"></a>Phase 6: Reranking — Needed to re-order initial retrieved documents using cross-encoders to improve precision and eliminate false positives</summary>
 ## Study Notes: Hybrid Search Strategies & Re-Ranking Techniques
 <img width="537" height="641" alt="image" src="https://github.com/user-attachments/assets/68528d95-1e6b-41b5-86c4-ad2136e86cb0" />
 
@@ -2444,7 +2444,7 @@ The workflow is divided into three distinct stages:
 </details>
 
 
-<details><summary><a id="topic-8-mmr" name="topic-8-mmr"></a>8. MMR (Maximal Marginal Relevance) — Needed to balance document relevance with diversity and prevent retrieving duplicate context</summary>
+<details><summary><a id="topic-8-mmr" name="topic-8-mmr"></a>Phase 6: MMR (Maximal Marginal Relevance) — Needed to balance document relevance with diversity and prevent retrieving duplicate context</summary>
 
 
 
@@ -2534,7 +2534,7 @@ $$\text{MMR}(D3) = (0.7 \cdot 0.80) - (0.3 \cdot 0.30) = 0.560 - 0.090 = \mathbf
 </details>
 
 
-<details><summary><a id="topic-9-query-expansion" name="topic-9-query-expansion"></a>9. Query Expansion Technique — Needed to generate query variations and synonyms to catch documents using different phrasing</summary>
+<details><summary><a id="topic-9-query-expansion" name="topic-9-query-expansion"></a>Phase 5: Query Expansion Technique — Needed to generate query variations and synonyms to catch documents using different phrasing</summary>
 
  **Query Expansion Technique** 
 
@@ -2585,7 +2585,7 @@ $$\text{Better Query} \longrightarrow \text{Better Retrieved Chunks} \longrighta
 </details>
 
 
-<details><summary><a id="topic-10-query-decomposition" name="topic-10-query-decomposition"></a>10. Query Decomposition — Needed to break complex, multi-part questions into simpler sub-queries for targeted multi-step retrieval</summary>
+<details><summary><a id="topic-10-query-decomposition" name="topic-10-query-decomposition"></a>Phase 5: Query Decomposition — Needed to break complex, multi-part questions into simpler sub-queries for targeted multi-step retrieval</summary>
   
  **Query Decomposition** 
 
@@ -2640,7 +2640,7 @@ $$\text{Better Query} \longrightarrow \text{Better Retrieved Chunks} \longrighta
 </details>
 
 
-<details><summary><a id="topic-11-hyde" name="topic-11-hyde"></a>11. HyDE (Hypothetical Document Embeddings) — Needed to bridge vocabulary gaps in short/vague queries by embedding LLM-generated hypothetical answers</summary>
+<details><summary><a id="topic-11-hyde" name="topic-11-hyde"></a>Phase 5: HyDE (Hypothetical Document Embeddings) — Needed to bridge vocabulary gaps in short/vague queries by embedding LLM-generated hypothetical answers</summary>
 **Hypothetical Document Embeddings (HyDE)** :
 
 ---
@@ -2696,7 +2696,7 @@ HyDE is especially useful when:
 </details>
 
 
-<details><summary><a id="topic-12-multimodal-ai" name="topic-12-multimodal-ai"></a>12. Multimodal AI — Needed to process and integrate heterogeneous data formats (text, images, audio, tables) in unified LLM workflows</summary>
+<details><summary><a id="topic-12-multimodal-ai" name="topic-12-multimodal-ai"></a>Phase 9: Multimodal AI — Needed to process and integrate heterogeneous data formats (text, images, audio, tables) in unified LLM workflows</summary>
 
 
 <img width="692" height="915" alt="image" src="https://github.com/user-attachments/assets/bf8314b0-7b20-41c0-a098-f93f49f12c80" />
@@ -2908,7 +2908,7 @@ HyDE is especially useful when:
 </details>
 
 
-<details><summary><a id="topic-13-multimodal-rag-architecture" name="topic-13-multimodal-rag-architecture"></a>13. Multimodal RAG & AI Architecture — Needed to index and retrieve image-rich documents, charts, and visual PDFs (e.g., CLIP / ColPali)</summary>
+<details><summary><a id="topic-13-multimodal-rag-architecture" name="topic-13-multimodal-rag-architecture"></a>Phase 9: Multimodal RAG & AI Architecture — Needed to index and retrieve image-rich documents, charts, and visual PDFs (e.g., CLIP / ColPali)</summary>
 
 # Multimodal RAG & Multimodal AI
 
@@ -2989,7 +2989,7 @@ flowchart TD
 </details>
 
 
-<details><summary><a id="topic-14-agentic-ai" name="topic-14-agentic-ai"></a>14. AI Agents vs. Agentic AI — Needed to distinguish simple tool-calling bots from autonomous, goal-driven, multi-step agent systems</summary>
+<details><summary><a id="topic-14-agentic-ai" name="topic-14-agentic-ai"></a>Phase 10: AI Agents vs. Agentic AI — Needed to distinguish simple tool-calling bots from autonomous, goal-driven, multi-step agent systems</summary>
 
 
 ## Key Definitions
@@ -3041,7 +3041,7 @@ flowchart TD
 </details>
 
 
-<details><summary><a id="topic-15-agentic-sdlc" name="topic-15-agentic-sdlc"></a>15. Example: Why We Need Agentic AI (Software Development Workflow) — Needed to demonstrate end-to-end autonomous software development, testing, and deployment automation</summary>
+<details><summary><a id="topic-15-agentic-sdlc" name="topic-15-agentic-sdlc"></a>Phase 11: Example: Why We Need Agentic AI (Software Development Workflow) — Needed to demonstrate end-to-end autonomous software development, testing, and deployment automation</summary>
 --
 
 

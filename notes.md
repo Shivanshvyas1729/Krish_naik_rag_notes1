@@ -23,22 +23,22 @@
 
 ## 📋 Table of Contents (Module-by-Module)
 
-1. [Data Ingestion & Splitting](#data-ingestion)
-   * [10 Core Chunking Strategies in RAG](#chunking-strategies)
+1. [Stage 1: Data Ingestion & Splitting](#data-ingestion)
+   * [Stage 2: 10 Core Chunking Strategies in RAG](#chunking-strategies)
 
-2. [PDF Parsing](#pdf-parsing)
+2. [Stage 1: PDF Parsing](#pdf-parsing)
 
-3. [Word Document Parsing](#word-parsing)
+3. [Stage 1: Word Document Parsing](#word-parsing)
 
-4. [CSV & Excel Structured Parsing](#csv-excel-parsing)
+4. [Stage 1: CSV & Excel Structured Parsing](#csv-excel-parsing)
 
-5. [JSON Parsing](#json-parsing)
+5. [Stage 1: JSON Parsing](#json-parsing)
 
-6. [Database Parsing](#database-parsing)
+6. [Stage 1: Database Parsing](#database-parsing)
 
-7. [Embedding Models](#embedding-models)
+7. [Stage 3: Embedding Models](#embedding-models)
 
-8. [Vector Databases](#vector-databases)
+8. [Stage 4: Vector Databases](#vector-databases)
    * [ChromaDB (`langchain_chroma.Chroma`)](#chroma-db)
    * [FAISS (`langchain_community.vectorstores.FAISS`)](#faiss)
    * [Pinecone (`langchain_pinecone.PineconeVectorStore`)](#pinecone)
@@ -46,29 +46,29 @@
    * [Qdrant (`langchain_qdrant.QdrantVectorStore`)](#qdrant)
    * [Vector Distance Metrics & Similarity Scores](#distance-metrics)
 
-9. [RAG Chains & Conversational Memory](#rag-chains)
+9. [Stage 7: RAG Chains & Conversational Memory](#rag-chains)
    * [1. LLM / Model Initialization Methods](#llm-init-methods)
    * [2. Custom RAG Chain using LCEL (LangChain Expression Language)](#lcel-rag-chain)
    * [3. Conversational RAG Chain (With History/Memory)](#conversational-rag)
    * [4. Modern RAG Chain (Using LangChain Classic Retrieval Chain)](#classic-rag-chain)
-   * [5. When to Use vs. When NOT to Use `format_docs` in LangChain](#format-docs-guide)
+   * [Stage 7.1: 5. When to Use vs. When NOT to Use `format_docs` in LangChain](#format-docs-guide)
 
-10. [Semantic Chunking](#semantic-chunking)
+10. [Stage 2: Semantic Chunking](#semantic-chunking)
     * [RAG Chain Types Comparison](#chain-types-comparison)
     * [Vector Store vs Vector Database](#vector-store-vs-db)
 
-11. [Hybrid Search & Re-ranking](#hybrid-search)
+11. [Stage 6: Hybrid Search & Re-ranking](#hybrid-search)
     * [11.1 Hybrid Retriever – Dense & Sparse Combination](#dense-sparse-retriever)
     * [11.2 Re-ranking Hybrid Search Strategies](#reranking)
     * [11.3 Maximal Marginal Relevance - MMR](#mmr)
     * [11.4 RAG Search Strategies & Production Search Pipelines](#production-search)
 
-12. [Query Enhancement & Advanced RAG](#query-enhancement)
+12. [Stage 5: Query Enhancement & Advanced RAG](#query-enhancement)
     * [12.1 Query Expansion](#query-expansion)
     * [12.2 Query Decomposition](#query-decomposition)
     * [12.3 Hypothetical Document Embeddings (HyDE)](#hyde)
 
-13. [Multimodal RAG (Transferred to notes2.md)](file:///c:/Users/DELL/Desktop/rag_praacties/notes2.md#13-multimodal-rag-07_multimodle-rag)
+13. [Stage 8: Multimodal RAG (Transferred to notes2.md)](file:///c:/Users/DELL/Desktop/rag_praacties/notes2.md#13-multimodal-rag-07_multimodle-rag)
 
 ---
 
