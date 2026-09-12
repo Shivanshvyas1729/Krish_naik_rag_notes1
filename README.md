@@ -18,6 +18,7 @@ This module contains modern, production-grade implementations and detailed theor
 | **`4-messages.ipynb`** | Canonical Message Schema & Token Tracking | `SystemMessage`, `HumanMessage`, `AIMessage`, `ToolMessage`, `usage_metadata` |
 | **`5-structuredoutput.ipynb`** | Enforced Schema Parsing & Validation | `with_structured_output()`, `response_format`, `Pydantic`, `TypedDict`, `@dataclass` |
 | **`6-middleware.ipynb`** | Agent Middleware, Memory & Human-in-the-Loop | `SummarizationMiddleware`, `HumanInTheLoopMiddleware`, `InMemorySaver`, `Command` |
+| **LCEL Core** | Declarative Composition & Runnable Protocol | `|` (pipe), `Runnable`, `invoke()`, `ainvoke()`, `batch()`, `stream()` |
 
 ---
 
@@ -306,6 +307,23 @@ agent = create_agent(
     ]
 )
 ```
+
+---
+
+### 7. LangChain Expression Language (LCEL) & The Runnable Protocol
+
+**LCEL (LangChain Expression Language)** is a declarative way to compose and chain artificial intelligence building blocks—such as prompts, models, and parsers—using the pipe operator (`|`). [[1](https://www.geeksforgeeks.org/artificial-intelligence/langchain/), [2](https://www.langchain.com/blog/langchain-expression-language)]
+
+#### 🧠 What is LCEL?
+* **Declarative Composition:** You define what components to connect, and data flows automatically from left to right.
+* **The Runnable Protocol:** Every core element in LCEL implements a standard interface (Runnables) that handles execution seamlessly.
+* **Basic Syntax:** A standard workflow looks like `chain = prompt | llm | output_parser`. [[1](https://cobusgreyling.medium.com/what-is-langchain-expression-language-lcel-8a828c38b37d), [2](https://langchain-opentutorial.gitbook.io/langchain-opentutorial/01-basic/07-lcel-interface), [3](https://www.aurelio.ai/learn/langchain-lcel), [4](https://www.geeksforgeeks.org/artificial-intelligence/langchain/)]
+
+#### 🚀 Key Features & Benefits
+* **Out-of-the-Box Execution Modes:** Supports synchronous (`invoke`), asynchronous (`ainvoke`), batch (`batch`), and streaming (`stream`) execution without changing your code. [[1](https://www.youtube.com/watch?v=8aUYzb1aYDU&t=1), [2](https://k21academy.com/ai-ml/langchain-expression-language/), [3](https://langchain-opentutorial.gitbook.io/langchain-opentutorial/01-basic/07-lcel-interface)]
+* **Automatic Parallelism:** Steps that can run concurrently do so automatically to boost runtime efficiency. [[1](https://k21academy.com/ai-ml/langchain-expression-language/)]
+* **Production Ready:** Designed to transition smoothly from local prototypes to production environments with built-in logging and tracing via platforms like LangSmith. [[1](https://www.artefact.com/blog/unleashing-the-power-of-langchain-expression-language-lcel-from-proof-of-concept-to-production/), [2](https://www.langchain.com/blog/langchain-expression-language), [3](https://k21academy.com/ai-ml/langchain-expression-language/)]
+
 
 
 </details>
@@ -1102,7 +1120,7 @@ A full-featured database system designed for managing and querying vector data a
 * Qdrant
 * Milvus
 * Vespa
-* DataStax
+* DataStax (AstraDB)
 
 ---
 
@@ -1114,9 +1132,993 @@ A full-featured database system designed for managing and querying vector data a
 | **Setup Time** | Minutes | Hours/Days |
 | **Query Speed** | Microseconds | Milliseconds |
 | **Features** | Basic Search | Full CRUD & Metadata filtering |
-| **Deployment** | Local | Cloud |
+| **Deployment** | Local | Cloud / Distributed |
 | **Cost** | Free | Paid ($$$) |
+
 [23-+Vector+store+vs+Vector+Databases.pdf](https://github.com/user-attachments/files/29892056/23-%2BVector%2Bstore%2Bvs%2BVector%2BDatabases.pdf)
+
+---
+
+## 💻 Vector Store & Database Hands-On Code Implementations
+
+Below are complete, production-ready code guides for creating, loading, persisting, querying, dynamically adding data, and building retrievers/RAG chains across all major vector stores and databases.
+
+---
+
+### 1. ChromaDB (`8.1-chromadb.ipynb`)
+
+<details>
+<summary><b>Code & Implementation: ChromaDB (Create, Query, Add Data, Retriever & RAG Chains)</b></summary>
+
+Chroma is an open-source, AI-native embedding database designed for developer productivity and local-first prototyping.
+
+#### 📦 Installation & Setup
+```bash
+pip install -qU langchain-chroma langchain-openai langchain-community chromadb
+```
+
+#### 🛠️ Step 1: Document Ingestion, Chunking & Embeddings
+```python
+import os
+from dotenv import load_dotenv
+from langchain_core.documents import Document
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_openai import OpenAIEmbeddings
+from langchain_chroma import Chroma
+
+load_dotenv()
+os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY")
+
+# 1. Sample Documents
+sample_docs = [
+    Document(
+        page_content="Machine learning is a subset of AI that focuses on learning from data without explicit programming.",
+        metadata={"topic": "ML", "source": "ai_primer.txt", "doc_id": 1}
+    ),
+    Document(
+        page_content="Deep learning uses multi-layer neural networks to learn representations from complex unstructured data like images and audio.",
+        metadata={"topic": "DL", "source": "ai_primer.txt", "doc_id": 2}
+    ),
+    Document(
+        page_content="Natural Language Processing (NLP) enables machines to read, understand, and derive meaning from human languages.",
+        metadata={"topic": "NLP", "source": "ai_primer.txt", "doc_id": 3}
+    )
+]
+
+# 2. Text Splitting
+text_splitter = RecursiveCharacterTextSplitter(chunk_size=150, chunk_overlap=20)
+chunks = text_splitter.split_documents(sample_docs)
+
+# 3. Embedding Model
+embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+```
+
+#### 🏗️ Step 2: Create & Persist Chroma Vector Store
+```python
+# Create persistent vector store on disk
+persist_directory = "./chroma_db"
+
+vectorstore = Chroma.from_documents(
+    documents=chunks,
+    embedding=embeddings,
+    persist_directory=persist_directory,
+    collection_name="rag_knowledge_base"
+)
+
+print(f"Total vectors stored in Chroma: {vectorstore._collection.count()}")
+```
+
+#### 🔍 Step 3: Direct Similarity Search & Scores
+```python
+query = "What is deep learning and neural networks?"
+
+# Standard Similarity Search (returns top-k documents)
+results = vectorstore.similarity_search(query, k=2)
+for i, doc in enumerate(results):
+    print(f"\n--- Result {i+1} ---")
+    print(f"Content: {doc.page_content}")
+    print(f"Metadata: {doc.metadata}")
+
+# Similarity Search with Distance Scores (Lower score = closer distance / higher similarity for L2/Cosine distance)
+results_with_scores = vectorstore.similarity_search_with_score(query, k=2)
+for doc, score in results_with_scores:
+    print(f"Score (Distance): {score:.4f} | Content: {doc.page_content[:60]}...")
+```
+
+#### ➕ Step 4: Adding More Data to Existing Chroma Store
+```python
+# Create new documents/chunks
+new_doc = Document(
+    page_content="Reinforcement Learning (RL) trains agents through reward and penalty feedback to maximize cumulative reward.",
+    metadata={"topic": "RL", "source": "rl_notes.txt", "doc_id": 4}
+)
+new_chunks = text_splitter.split_documents([new_doc])
+
+# Add documents dynamically to existing vectorstore
+vectorstore.add_documents(new_chunks)
+
+# Or add raw texts directly with metadata
+vectorstore.add_texts(
+    texts=["Supervised learning trains models on labeled input-output pairs."],
+    metadatas=[{"topic": "ML", "source": "ml_basics.txt", "doc_id": 5}]
+)
+
+print(f"Total vectors after addition: {vectorstore._collection.count()}")
+```
+
+#### 🎯 Step 5: Metadata Filtering
+```python
+# Retrieve only documents matching specific metadata criteria
+filtered_results = vectorstore.similarity_search(
+    query="Explain learning methods",
+    k=3,
+    filter={"topic": "ML"}
+)
+for doc in filtered_results:
+    print(f"[{doc.metadata['topic']}] {doc.page_content}")
+```
+
+#### 🚀 Step 6: Converting to Retriever & Building RAG Chains
+```python
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnablePassthrough
+from langchain_core.output_parsers import StrOutputParser
+from langchain.chat_models import init_chat_model
+
+# 1. Convert vector store to retriever
+retriever = vectorstore.as_retriever(
+    search_type="similarity", # or "mmr", "similarity_score_threshold"
+    search_kwargs={"k": 3}
+)
+
+# 2. Format helper
+def format_docs(docs):
+    return "\n\n".join(doc.page_content for doc in docs)
+
+# 3. Initialize LLM (OpenAI or Groq)
+llm = init_chat_model("gpt-4o-mini")
+
+# 4. Prompt Template
+prompt = ChatPromptTemplate.from_template("""
+Answer the question based ONLY on the provided context:
+
+Context:
+{context}
+
+Question:
+{question}
+
+Answer:
+""")
+
+# 5. Build LCEL RAG Chain
+rag_chain = (
+    {"context": retriever | format_docs, "question": RunnablePassthrough()}
+    | prompt
+    | llm
+    | StrOutputParser()
+)
+
+response = rag_chain.invoke("What is reinforcement learning?")
+print("RAG Response:\n", response)
+```
+
+#### 🧠 Step 7: Advanced Conversational RAG with Chat History
+```python
+from langchain_core.prompts import MessagesPlaceholder
+from langchain_core.messages import HumanMessage, AIMessage
+from langchain.chains import create_history_aware_retriever, create_retrieval_chain
+from langchain.chains.combine_documents import create_stuff_documents_chain
+
+# 1. Contextualize Question Prompt (Re-writes user question considering history)
+contextualize_q_system_prompt = """Given a chat history and the latest user question \
+which might reference context in the chat history, formulate a standalone question \
+which can be understood without the chat history. Do NOT answer the question, \
+just reformulate it if needed and otherwise return it as is."""
+
+contextualize_q_prompt = ChatPromptTemplate.from_messages([
+    ("system", contextualize_q_system_prompt),
+    MessagesPlaceholder("chat_history"),
+    ("human", "{input}"),
+])
+
+history_aware_retriever = create_history_aware_retriever(
+    llm, retriever, contextualize_q_prompt
+)
+
+# 2. QA Prompt with Context & History
+qa_system_prompt = """You are an assistant for question-answering tasks. \
+Use the following pieces of retrieved context to answer the question. \
+If you don't know the answer, say that you don't know. Use three sentences maximum and keep the answer concise.\n\n{context}"""
+
+qa_prompt = ChatPromptTemplate.from_messages([
+    ("system", qa_system_prompt),
+    MessagesPlaceholder("chat_history"),
+    ("human", "{input}"),
+])
+
+question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
+rag_conversational_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
+
+# 3. Multi-turn execution
+chat_history = []
+
+# Turn 1
+q1 = "What is machine learning?"
+res1 = rag_conversational_chain.invoke({"input": q1, "chat_history": chat_history})
+print("Turn 1 Answer:", res1["answer"])
+chat_history.extend([HumanMessage(content=q1), AIMessage(content=res1["answer"])])
+
+# Turn 2 (Follow-up relying on history context)
+q2 = "What are its main subsets mentioned in the context?"
+res2 = rag_conversational_chain.invoke({"input": q2, "chat_history": chat_history})
+print("Turn 2 Answer:", res2["answer"])
+```
+
+</details>
+
+---
+
+### 2. FAISS (Facebook AI Similarity Search) (`8.2-faiss.ipynb`)
+
+<details>
+<summary><b>Code & Implementation: FAISS (Create, Cosine Comparison, Save/Load, Add Data, Retriever & Chains)</b></summary>
+
+FAISS (Facebook AI Similarity Search) is a high-performance C++ library with Python wrappers developed by Meta for dense vector similarity search with extreme GPU/CPU optimization and low memory overhead.
+
+#### 📦 Installation & Setup
+```bash
+pip install -qU faiss-cpu langchain-community langchain-openai numpy
+```
+
+#### 🛠️ Step 1: Initializing FAISS Vector Store & Semantic Embeddings
+```python
+import os
+import numpy as np
+from dotenv import load_dotenv
+from langchain_core.documents import Document
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_openai import OpenAIEmbeddings
+from langchain_community.vectorstores import FAISS
+
+load_dotenv()
+embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+
+sample_documents = [
+    Document(
+        page_content="Artificial Intelligence is a broad field focusing on creating smart machines capable of performing human tasks.",
+        metadata={"topic": "AI", "source": "tech_overview.txt", "doc_id": 1}
+    ),
+    Document(
+        page_content="Machine Learning enables computers to learn and improve automatically from experience without being explicitly programmed.",
+        metadata={"topic": "ML", "source": "tech_overview.txt", "doc_id": 2}
+    ),
+    Document(
+        page_content="Deep Learning utilizes deep artificial neural networks inspired by the human brain for predictive modeling.",
+        metadata={"topic": "DL", "source": "tech_overview.txt", "doc_id": 3}
+    )
+]
+
+text_splitter = RecursiveCharacterTextSplitter(chunk_size=120, chunk_overlap=20)
+chunks = text_splitter.split_documents(sample_documents)
+
+# Create FAISS vector store
+vectorstore = FAISS.from_documents(documents=chunks, embedding=embeddings)
+print("FAISS vectorstore created successfully!")
+```
+
+#### 📐 Step 2: Measuring Cosine Similarity Directly
+```python
+def compare_embeddings(text1: str, text2: str) -> float:
+    emb1 = np.array(embeddings.embed_query(text1))
+    emb2 = np.array(embeddings.embed_query(text2))
+    # Cosine similarity formula: (A . B) / (||A|| * ||B||)
+    similarity = np.dot(emb1, emb2) / (np.linalg.norm(emb1) * np.linalg.norm(emb2))
+    return float(similarity)
+
+print("Similarity 'AI' vs 'Pizza':", compare_embeddings("AI", "Pizza"))
+print("Similarity 'Machine Learning' vs 'ML':", compare_embeddings("Machine Learning", "ML"))
+```
+
+#### 💾 Step 3: Local Persistence (Save & Load Index)
+```python
+# 1. Save FAISS index and docstore locally
+vectorstore.save_local("faiss_index")
+print("Saved FAISS index to ./faiss_index")
+
+# 2. Load FAISS index back into memory
+loaded_vectorstore = FAISS.load_local(
+    "faiss_index",
+    embeddings,
+    allow_dangerous_deserialization=True  # Required for pickle deserialization of docstore
+)
+print("Loaded FAISS index successfully!")
+```
+
+#### ➕ Step 4: Adding More Documents to FAISS Index
+```python
+new_docs = [
+    Document(
+        page_content="Supervised learning uses labeled training datasets to train algorithms that classify data or predict outcomes.",
+        metadata={"topic": "ML", "source": "advanced_ml.txt", "doc_id": 4}
+    ),
+    Document(
+        page_content="Convolutional Neural Networks (CNNs) are specialized for processing visual grid data like digital images.",
+        metadata={"topic": "DL", "source": "advanced_dl.txt", "doc_id": 5}
+    )
+]
+
+new_chunks = text_splitter.split_documents(new_docs)
+
+# Add new document chunks dynamically
+vectorstore.add_documents(new_chunks)
+
+# Add raw texts directly
+vectorstore.add_texts(
+    texts=["Recurrent Neural Networks (RNNs) are designed to recognize patterns in sequential data like text and time-series."],
+    metadatas=[{"topic": "DL", "source": "advanced_dl.txt", "doc_id": 6}]
+)
+print("Added new documents to FAISS index.")
+```
+
+#### 🔍 Step 5: Similarity Search & Metadata Filtering
+```python
+query = "What is deep learning and neural networks?"
+
+# Basic Search
+results = vectorstore.similarity_search(query, k=3)
+for i, doc in enumerate(results):
+    print(f"Doc {i+1}: {doc.page_content}")
+
+# Search with Score (In FAISS L2 distance: lower score = more similar)
+results_with_scores = vectorstore.similarity_search_with_score(query, k=3)
+for doc, score in results_with_scores:
+    print(f"L2 Distance Score: {score:.4f} | Topic: {doc.metadata.get('topic')} | Text: {doc.page_content[:50]}...")
+
+# Metadata Filter Search
+filtered_results = vectorstore.similarity_search(
+    query,
+    k=2,
+    filter={"topic": "DL"}
+)
+print(f"Filtered Results count: {len(filtered_results)}")
+```
+
+#### 🚀 Step 6: FAISS Retriever with MMR & LCEL Streaming RAG
+```python
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnablePassthrough
+from langchain_core.output_parsers import StrOutputParser
+from langchain.chat_models import init_chat_model
+
+# 1. Retriever using Maximal Marginal Relevance (MMR) for diverse, non-redundant chunks
+retriever = vectorstore.as_retriever(
+    search_type="mmr",
+    search_kwargs={"k": 3, "fetch_k": 10, "lambda_mult": 0.7}
+)
+
+# 2. Format docs
+def format_docs(docs):
+    return "\n\n".join(f"[{doc.metadata.get('topic', 'General')}] {doc.page_content}" for doc in docs)
+
+# 3. Prompt & LLM
+prompt = ChatPromptTemplate.from_template("""
+Context:
+{context}
+
+Question: {question}
+Answer clearly with bullet points:
+""")
+
+llm = init_chat_model("groq:llama-3.3-70b-versatile")  # Or "gpt-4o-mini"
+
+# 4. LCEL Streaming Chain
+rag_chain = (
+    {"context": retriever | format_docs, "question": RunnablePassthrough()}
+    | prompt
+    | llm
+    | StrOutputParser()
+)
+
+# 5. Stream tokens in real time
+print("\n--- Streaming Response ---")
+for chunk in rag_chain.stream("How is Deep Learning related to Machine Learning?"):
+    print(chunk, end="", flush=True)
+print()
+```
+
+</details>
+
+---
+
+### 3. InMemoryVectorStore (`8.3-Othervectorstores.ipynb`)
+
+<details>
+<summary><b>Code & Implementation: InMemoryVectorStore (Lightweight In-Memory Testing & LCEL)</b></summary>
+
+`InMemoryVectorStore` is the standard, ultra-lightweight, zero-dependency in-memory vector store shipped inside `langchain-core` for unit testing, educational demos, and ephemeral scripts.
+
+#### 📦 Installation & Setup
+```bash
+pip install -qU langchain-core langchain-openai
+```
+
+#### 🛠️ Complete Implementation
+```python
+import os
+from dotenv import load_dotenv
+from langchain_core.documents import Document
+from langchain_core.vectorstores import InMemoryVectorStore
+from langchain_openai import OpenAIEmbeddings
+
+load_dotenv()
+embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+
+# 1. Initialize empty In-Memory Vector Store
+vector_store = InMemoryVectorStore(embeddings)
+
+# 2. Prepare Documents
+documents = [
+    Document(page_content="Today the weather is sunny with a mild breeze and temperature around 24C.", metadata={"type": "weather", "city": "NYC"}),
+    Document(page_content="Tomorrow we expect heavy rain and thunderstorms in the afternoon.", metadata={"type": "weather", "city": "NYC"}),
+    Document(page_content="The stock market showed strong gains in technology and semiconductor sectors.", metadata={"type": "finance", "sector": "tech"}),
+]
+
+# 3. Add Documents
+vector_store.add_documents(documents=documents)
+
+# 4. Direct Similarity Search
+results = vector_store.similarity_search("how is the weather forecast?", k=2)
+print("--- Similarity Search Results ---")
+for doc in results:
+    print(f"[{doc.metadata['type']}] {doc.page_content}")
+
+# 5. Similarity Search with Score
+results_scored = vector_store.similarity_search_with_score("stock market rally", k=1)
+doc, score = results_scored[0]
+print(f"\nTop Match Score: {score:.4f} | Text: {doc.page_content}")
+
+# 6. Convert to Retriever & Query via LCEL
+retriever = vector_store.as_retriever(search_kwargs={"k": 2})
+retrieved_docs = retriever.invoke("heavy rain tomorrow")
+print("\n--- Retriever Output ---")
+for doc in retrieved_docs:
+    print(doc.page_content)
+```
+
+</details>
+
+---
+
+### 4. Pinecone Vector Database (`8.4-PineconeVectorDB.ipynb`)
+
+<details>
+<summary><b>Code & Implementation: Pinecone Serverless Cloud Vector Database</b></summary>
+
+Pinecone is a fully managed, cloud-native vector database designed for high-availability enterprise workloads, serverless index scaling, and sub-second metadata-filtered similarity queries across billions of vectors.
+
+#### 📦 Installation & Setup
+```bash
+pip install -qU pinecone langchain-pinecone langchain-openai
+```
+
+#### 🛠️ Complete Implementation
+```python
+import os
+import time
+from dotenv import load_dotenv
+from pinecone import Pinecone, ServerlessSpec
+from langchain_openai import OpenAIEmbeddings
+from langchain_pinecone import PineconeVectorStore
+from langchain_core.documents import Document
+
+load_dotenv()
+PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+# 1. Initialize Pinecone Client
+pc = Pinecone(api_key=PINECONE_API_KEY)
+index_name = "rag-production-index"
+
+# 2. Create Serverless Index if it doesn't already exist
+embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+embedding_dim = 1536  # Dimension for text-embedding-3-small
+
+existing_indexes = [idx.name for idx in pc.list_indexes()]
+
+if index_name not in existing_indexes:
+    print(f"Creating Pinecone index '{index_name}'...")
+    pc.create_index(
+        name=index_name,
+        dimension=embedding_dim,
+        metric="cosine",  # Options: "cosine", "dotproduct", "euclidean"
+        spec=ServerlessSpec(
+            cloud="aws",
+            region="us-east-1"
+        )
+    )
+    # Wait for index initialization
+    while not pc.describe_index(index_name).status["ready"]:
+        time.sleep(1)
+    print("Index is ready!")
+
+# 3. Connect LangChain to Pinecone Index
+vector_store = PineconeVectorStore(
+    index_name=index_name,
+    embedding=embeddings
+)
+
+# 4. Prepare & Add Documents
+documents = [
+    Document(
+        page_content="Pinecone Serverless separates storage from compute, scaling automatically with request demand.",
+        metadata={"category": "tech_docs", "source": "pinecone_guide", "author": "dev"}
+    ),
+    Document(
+        page_content="Vector databases provide ACID transactions, metadata indexing, namespaces, and distributed replication.",
+        metadata={"category": "tech_docs", "source": "database_architecture", "author": "architect"}
+    ),
+    Document(
+        page_content="Tomorrow's weather will be warm and sunny with zero precipitation expected across the region.",
+        metadata={"category": "news", "source": "daily_bulletin", "author": "weather_desk"}
+    )
+]
+
+# Ingest documents into Pinecone
+vector_store.add_documents(documents=documents)
+print("Documents successfully ingested into Pinecone!")
+
+# 5. Direct Similarity Search with Metadata Filtering
+query = "Tell me about cloud vector database scaling"
+results = vector_store.similarity_search(
+    query,
+    k=2,
+    filter={"category": "tech_docs"}  # Exact metadata filtering at vector search layer
+)
+
+print("\n--- Metadata-Filtered Results ---")
+for doc in results:
+    print(f"Source: {doc.metadata['source']} | Content: {doc.page_content}")
+
+# 6. Similarity Search with Score
+results_with_scores = vector_store.similarity_search_with_score(
+    "Will it be hot tomorrow?",
+    k=1,
+    filter={"category": "news"}
+)
+for doc, score in results_with_scores:
+    print(f"\nCosine Similarity Score: {score:.4f} | Content: {doc.page_content}")
+
+# 7. Convert to Retriever for RAG Pipeline
+retriever = vector_store.as_retriever(
+    search_type="similarity",
+    search_kwargs={"k": 2, "filter": {"category": "tech_docs"}}
+)
+
+retrieved_docs = retriever.invoke("How does serverless vector search work?")
+print("\n--- Retriever Results ---")
+for doc in retrieved_docs:
+    print(doc.page_content)
+```
+
+</details>
+
+---
+
+### 5. DataStax AstraDB (`8.5-Datastaxdb+(1).ipynb`)
+
+<details>
+<summary><b>Code & Implementation: DataStax AstraDB (Managed Apache Cassandra Vector DB)</b></summary>
+
+DataStax AstraDB is a cloud-native, multi-model vector database built on top of Apache Cassandra, offering massive horizontal scalability, NoSQL + Vector hybrid capabilities, and multi-region replication.
+
+#### 📦 Installation & Setup
+```bash
+pip install -qU "langchain>=0.3.0" langchain-astradb langchain-openai
+```
+
+#### 🛠️ Complete Implementation
+```python
+import os
+from dotenv import load_dotenv
+from langchain_openai import OpenAIEmbeddings
+from langchain_astradb import AstraDBVectorStore
+from langchain_core.documents import Document
+
+load_dotenv()
+
+# 1. AstraDB Credentials & Configuration
+ASTRA_DB_API_ENDPOINT = os.getenv("ASTRA_DB_API_ENDPOINT", "https://<your-db-id>-<region>.apps.astra.datastax.com")
+ASTRA_DB_APPLICATION_TOKEN = os.getenv("ASTRA_DB_APPLICATION_TOKEN", "AstraCS:...")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+# 2. Embedding Model (e.g. 1024 or 1536 dimension)
+embeddings = OpenAIEmbeddings(
+    model="text-embedding-3-small",
+    dimensions=1024,
+    api_key=OPENAI_API_KEY
+)
+
+# 3. Initialize AstraDB Vector Store
+vector_store = AstraDBVectorStore(
+    collection_name="rag_collection",
+    embedding=embeddings,
+    api_endpoint=ASTRA_DB_API_ENDPOINT,
+    token=ASTRA_DB_APPLICATION_TOKEN
+)
+print("Connected to AstraDB Vector Store!")
+
+# 4. Prepare Documents & Add to AstraDB
+documents = [
+    Document(
+        page_content="LangChain provides abstractions to make working with LLMs easy, modular, and extensible.",
+        metadata={"framework": "langchain", "type": "core"}
+    ),
+    Document(
+        page_content="DataStax AstraDB provides serverless Cassandra vector search with high availability across global regions.",
+        metadata={"framework": "astradb", "type": "database"}
+    ),
+    Document(
+        page_content="Retrieval-Augmented Generation combines external parametric knowledge bases with generative LLM inference.",
+        metadata={"framework": "rag", "type": "architecture"}
+    )
+]
+
+# Ingest documents
+vector_store.add_documents(documents=documents)
+print("Documents added to AstraDB!")
+
+# 5. Direct Similarity Search with Scores
+query = "LangChain abstractions for LLM applications"
+results_with_scores = vector_store.similarity_search_with_score(query, k=2)
+
+print("\n--- AstraDB Similarity Search with Score ---")
+for doc, score in results_with_scores:
+    print(f"Similarity Score: {score:.4f} | Framework: {doc.metadata['framework']} | Content: {doc.page_content}")
+
+# 6. Convert to Retriever & Query
+retriever = vector_store.as_retriever(
+    search_type="similarity",
+    search_kwargs={"k": 2}
+)
+
+retrieved_docs = retriever.invoke("How does AstraDB scale vector search?")
+print("\n--- AstraDB Retriever Results ---")
+for doc in retrieved_docs:
+    print(f"[{doc.metadata['framework']}] {doc.page_content}")
+```
+
+</details>
+
+---
+
+### 6. Qdrant Vector Database (Local & Cloud)
+
+<details>
+<summary><b>Code & Implementation: Qdrant Vector Database (Local Memory, Disk, Docker & Cloud Serverless)</b></summary>
+
+Qdrant is an enterprise-grade, open-source vector search engine and database written in Rust. It offers ultra-low latency vector similarity search, advanced payload (metadata) filtering, vector quantization, and support for hybrid (dense + sparse) search.
+
+Qdrant natively supports **4 flexible deployment modes**:
+* 🟢 **Local In-Memory Mode (`location=":memory:"`)**: Runs entirely in RAM for unit tests and quick scripting (no server needed).
+* 🟡 **Local Disk Persistence (`path="./qdrant_db"`)**: Persists vectors and metadata directly to local disk without Docker or background servers.
+* 🟠 **Local Docker Container / Self-Hosted Server (`url="http://localhost:6333"`)**: Standalone server with built-in Web UI Dashboard (`http://localhost:6333/dashboard`).
+* 🔵 **Qdrant Cloud Serverless / Managed Cluster (`url="https://<cluster-id>.qdrant.tech:6333"`, `api_key="<api-key>"`)**: Fully managed cloud service for high-concurrency production workloads.
+
+---
+
+#### 📦 Installation & Setup
+```bash
+pip install -qU qdrant-client langchain-qdrant langchain-openai langchain-core
+```
+
+#### 🐳 Optional: Running Local Qdrant with Docker
+```bash
+# Run Qdrant container with persistent volume and Web Dashboard (Port 6333: REST/WebUI, Port 6334: gRPC)
+docker run -d -p 6333:6333 -p 6334:6334 \
+    -v $(pwd)/qdrant_storage:/qdrant/storage:z \
+    --name qdrant_rag qdrant/qdrant
+```
+
+---
+
+#### 🛠️ Complete Implementation (Local & Cloud Modes)
+
+```python
+import os
+import time
+from dotenv import load_dotenv
+from langchain_core.documents import Document
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_openai import OpenAIEmbeddings
+from langchain_qdrant import QdrantVectorStore
+from qdrant_client import QdrantClient
+from qdrant_client.http import models
+from qdrant_client.http.models import Distance, VectorParams
+
+load_dotenv()
+os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY")
+
+# 1. Prepare Embeddings & Text Splitter
+embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+embedding_dim = 1536  # text-embedding-3-small output dimension
+
+sample_documents = [
+    Document(
+        page_content="Qdrant is an open-source vector similarity search engine and vector database written in Rust.",
+        metadata={"category": "database", "topic": "Qdrant", "author": "dev", "doc_id": 1}
+    ),
+    Document(
+        page_content="Qdrant supports rich payload filtering, vector quantization, and dense plus sparse hybrid search.",
+        metadata={"category": "features", "topic": "Qdrant", "author": "architect", "doc_id": 2}
+    ),
+    Document(
+        page_content="Retrieval-Augmented Generation (RAG) grounds LLM responses using accurate contextual facts from vector stores.",
+        metadata={"category": "ai_patterns", "topic": "RAG", "author": "researcher", "doc_id": 3}
+    )
+]
+
+text_splitter = RecursiveCharacterTextSplitter(chunk_size=150, chunk_overlap=20)
+chunks = text_splitter.split_documents(sample_documents)
+collection_name = "production_knowledge_base"
+```
+
+---
+
+#### ⚙️ Step 1: Initializing Qdrant Client (Choose Local or Cloud)
+
+```python
+# =====================================================================
+# CHOOSE YOUR DEPLOYMENT MODE:
+# =====================================================================
+
+# MODE A: Local In-Memory (Zero persistence, ephemeral)
+# client = QdrantClient(location=":memory:")
+
+# MODE B: Local Disk Persistence (No server/Docker required!)
+client = QdrantClient(path="./qdrant_db")
+
+# MODE C: Local Docker / Self-Hosted Server
+# client = QdrantClient(url="http://localhost:6333")
+
+# MODE D: Qdrant Cloud (Managed Serverless / Dedicated Cluster)
+# QDRANT_CLOUD_URL = os.getenv("QDRANT_CLOUD_URL")  # e.g. "https://xxxxxx.us-east-1-0.aws.cloud.qdrant.io:6333"
+# QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
+# client = QdrantClient(url=QDRANT_CLOUD_URL, api_key=QDRANT_API_KEY)
+
+# 2. Ensure Collection Exists with Specified Vector Configuration & Distance Metric
+if not client.collection_exists(collection_name):
+    client.create_collection(
+        collection_name=collection_name,
+        vectors_config=VectorParams(size=embedding_dim, distance=Distance.COSINE)
+    )
+    print(f"Created Qdrant collection: {collection_name}")
+
+# 3. Connect LangChain QdrantVectorStore
+vector_store = QdrantVectorStore(
+    client=client,
+    collection_name=collection_name,
+    embedding=embeddings
+)
+```
+
+---
+
+#### 📥 Step 2: Ingest Documents & Add More Data Dynamically
+
+```python
+# 1. Ingest initial document chunks
+vector_store.add_documents(documents=chunks)
+print("Ingested initial document chunks into Qdrant!")
+
+# 2. Dynamically add new documents / updates to existing collection
+new_doc = Document(
+    page_content="Scalar Quantization in Qdrant compresses 32-bit floats into 8-bit integers, reducing RAM usage by up to 75%.",
+    metadata={"category": "optimization", "topic": "Quantization", "author": "dev", "doc_id": 4}
+)
+new_chunks = text_splitter.split_documents([new_doc])
+vector_store.add_documents(new_chunks)
+
+# 3. Dynamically add raw texts directly with metadata
+vector_store.add_texts(
+    texts=["Binary Quantization in Qdrant offers up to 40x speedup and 95% memory compression for high-volume datasets."],
+    metadatas=[{"category": "optimization", "topic": "Quantization", "author": "dev", "doc_id": 5}]
+)
+print("Added dynamic documents and texts to Qdrant.")
+```
+
+---
+
+#### 🔍 Step 3: Direct Similarity Search & Similarity with Scores
+
+```python
+query = "How does vector quantization optimize memory in Qdrant?"
+
+# 1. Standard Similarity Search
+results = vector_store.similarity_search(query, k=2)
+print("\n--- Standard Similarity Search Results ---")
+for i, doc in enumerate(results):
+    print(f"\n[Result {i+1}] (Topic: {doc.metadata.get('topic')})")
+    print(f"Content: {doc.page_content}")
+
+# 2. Similarity Search with Scores (Higher cosine score = greater semantic similarity)
+results_with_scores = vector_store.similarity_search_with_score(query, k=2)
+print("\n--- Similarity Search with Scores ---")
+for doc, score in results_with_scores:
+    print(f"Cosine Similarity Score: {score:.4f} | Content: {doc.page_content[:65]}...")
+```
+
+---
+
+#### 🎯 Step 4: Advanced Metadata & Payload Pre-Filtering
+
+```python
+# Option A: Simple Dictionary Filter
+dict_filtered = vector_store.similarity_search(
+    query="vector search optimization",
+    k=2,
+    filter={"category": "optimization"}
+)
+print("\n--- Dictionary Filter Results ---")
+for doc in dict_filtered:
+    print(f"[{doc.metadata.get('topic')}] {doc.page_content}")
+
+# Option B: Advanced Native Qdrant Filter (Must / Should / Must Not boolean logic)
+qdrant_native_filter = models.Filter(
+    must=[
+        models.FieldCondition(
+            key="metadata.category",
+            match=models.MatchValue(value="optimization")
+        )
+    ]
+)
+
+advanced_results = vector_store.similarity_search(
+    query="compression speedup",
+    k=2,
+    filter=qdrant_native_filter
+)
+print("\n--- Qdrant Native Filter Results ---")
+for doc in advanced_results:
+    print(f"[{doc.metadata.get('topic')}] {doc.page_content}")
+```
+
+---
+
+#### 🚀 Step 5: Converting to Retriever (Similarity, MMR, Threshold) & LCEL RAG
+
+```python
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnablePassthrough
+from langchain_core.output_parsers import StrOutputParser
+from langchain.chat_models import init_chat_model
+
+# 1. Create Retriever with Maximal Marginal Relevance (MMR) for diverse retrieval
+retriever = vector_store.as_retriever(
+    search_type="mmr",
+    search_kwargs={"k": 3, "fetch_k": 10, "lambda_mult": 0.7}
+)
+
+# 2. Document formatting helper
+def format_docs(docs):
+    return "\n\n".join(f"[{doc.metadata.get('topic')}] {doc.page_content}" for doc in docs)
+
+# 3. Prompt & LLM
+prompt = ChatPromptTemplate.from_template("""
+You are an expert on Vector Databases and RAG architectures.
+Answer the user question using ONLY the provided context:
+
+Context:
+{context}
+
+Question:
+{question}
+
+Answer with detailed explanation:
+""")
+
+llm = init_chat_model("gpt-4o-mini") # Or "groq:llama-3.3-70b-versatile"
+
+# 4. LCEL RAG Chain
+rag_chain = (
+    {"context": retriever | format_docs, "question": RunnablePassthrough()}
+    | prompt
+    | llm
+    | StrOutputParser()
+)
+
+# 5. Execute RAG Query
+response = rag_chain.invoke("What are the advantages of Scalar and Binary Quantization in Qdrant?")
+print("\n--- RAG Generated Answer ---")
+print(response)
+```
+
+---
+
+#### 🧠 Step 6: Multi-Turn Conversational RAG with Memory & Qdrant
+
+```python
+from langchain_core.prompts import MessagesPlaceholder
+from langchain_core.messages import HumanMessage, AIMessage
+from langchain.chains import create_history_aware_retriever, create_retrieval_chain
+from langchain.chains.combine_documents import create_stuff_documents_chain
+
+# 1. Contextualize Question Prompt
+contextualize_q_prompt = ChatPromptTemplate.from_messages([
+    ("system", "Given a chat history and the latest user question, formulate a standalone question that can be understood without the chat history."),
+    MessagesPlaceholder("chat_history"),
+    ("human", "{input}"),
+])
+
+history_retriever = create_history_aware_retriever(llm, retriever, contextualize_q_prompt)
+
+# 2. QA Prompt
+qa_prompt = ChatPromptTemplate.from_messages([
+    ("system", "You are an assistant for question-answering tasks. Use the following retrieved context to answer accurately:\n\n{context}"),
+    MessagesPlaceholder("chat_history"),
+    ("human", "{input}"),
+])
+
+qa_chain = create_stuff_documents_chain(llm, qa_prompt)
+conversational_rag = create_retrieval_chain(history_retriever, qa_chain)
+
+# 3. Multi-turn execution
+history = []
+
+# Turn 1
+q1 = "What is Qdrant and what programming language is it built with?"
+res1 = conversational_rag.invoke({"input": q1, "chat_history": history})
+print("Turn 1 Answer:\n", res1["answer"])
+history.extend([HumanMessage(content=q1), AIMessage(content=res1["answer"])])
+
+# Turn 2 (Context-dependent follow-up)
+q2 = "What optimization techniques does it offer for memory compression?"
+res2 = conversational_rag.invoke({"input": q2, "chat_history": history})
+print("\nTurn 2 Answer:\n", res2["answer"])
+```
+
+</details>
+
+---
+
+### 7. Unified Vector Store & Retriever API Cheatsheet
+
+<details>
+<summary><b>Quick Reference: Universal Retriever Methods, Search Types & Parameters</b></summary>
+
+LangChain provides a unified interface across all vector stores. Any vector store can be converted into a `Retriever` using `.as_retriever()`:
+
+| Vector Store / DB | Creation Method | Local Persistence | Add Data Method | Metadata Filtering Syntax |
+| :--- | :--- | :--- | :--- | :--- |
+| **ChromaDB** | `Chroma.from_documents(docs, emb, persist_directory=...)` | Native directory (`./chroma_db`) | `vectorstore.add_documents()` / `add_texts()` | `filter={"field": "value"}` |
+| **FAISS** | `FAISS.from_documents(docs, emb)` | `save_local("path")` & `load_local("path", ...)` | `vectorstore.add_documents()` / `add_texts()` | `filter={"field": "value"}` |
+| **InMemoryVectorStore** | `InMemoryVectorStore(emb)` | Ephemeral (in RAM) | `vector_store.add_documents()` | Built-in callable filter |
+| **Pinecone** | `PineconeVectorStore(index_name=..., embedding=...)` | Cloud Managed | `vector_store.add_documents()` | `filter={"field": "value"}` |
+| **AstraDB** | `AstraDBVectorStore(collection_name=..., ...)` | Cloud Managed | `vector_store.add_documents()` | `filter={"field": "value"}` |
+| **Qdrant** | `QdrantVectorStore(client=..., collection_name=..., ...)` | Local Disk (`path="./qdrant_db"`) or Cloud (`url=...`) | `vector_store.add_documents()` / `add_texts()` | `filter={"field": "value"}` or native `models.Filter` |
+
+#### ⚙️ Retriever Search Types & Parameters:
+
+1. **Standard Similarity Search (`search_type="similarity"`)**:
+   ```python
+   retriever = vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": 4})
+   ```
+2. **Maximal Marginal Relevance (`search_type="mmr"`)** — Balances relevance with diversity to reduce redundancy:
+   ```python
+   retriever = vectorstore.as_retriever(
+       search_type="mmr",
+       search_kwargs={"k": 3, "fetch_k": 10, "lambda_mult": 0.7}
+   )
+   ```
+3. **Similarity Score Threshold (`search_type="similarity_score_threshold"`)** — Only returns documents with similarity score above cutoff:
+   ```python
+   retriever = vectorstore.as_retriever(
+       search_type="similarity_score_threshold",
+       search_kwargs={"score_threshold": 0.75, "k": 5}
+   )
+   ```
+
+</details>
 
 </details>
 
