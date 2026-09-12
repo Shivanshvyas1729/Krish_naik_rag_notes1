@@ -15,7 +15,7 @@
 | **Phase 4** | **High-Dimensional Vector Storage** | Vector Stores vs Vector DBs Architecture Matrix, Local Stores (ChromaDB, FAISS, InMemory), Cloud DBs (Pinecone Serverless, DataStax AstraDB, Qdrant), Distance Metrics (Cosine, L2, Dot Product) | [Vector Stores & Vector Databases](#topic-4-vector-db) |
 | **Phase 5** | **Pre-Retrieval Query Transformation** | **1. Query Expansion:** LLM synonyms and sub-aspects<br>**2. Query Decomposition:** Multi-hop problem breakdown<br>**3. HyDE:** Hypothetical Document Embeddings to solve question-document asymmetry | [Query Expansion](#topic-9-query-expansion) • [Decomposition](#topic-10-query-decomposition) • [HyDE](#topic-11-hyde) |
 | **Phase 6** | **Advanced Retrieval & Precision Ranking** | **1. Hybrid Search:** Combining Dense (Embeddings) + Sparse (BM25) with RRF<br>**2. Cross-Encoder Re-ranking:** Precision scoring to eliminate false positives<br>**3. MMR (Maximal Marginal Relevance):** Balancing relevance with diversity | [Hybrid Search](#topic-6-hybrid-search) • [Re-ranking](#topic-7-reranking) • [MMR](#topic-8-mmr) |
-| **Phase 7** | **RAG Chain Construction & Memory** | LCEL RAG Chains, Conversational RAG with Chat History (`create_history_aware_retriever`), Pre-built Chains (`create_stuff_documents_chain` & `create_retrieval_chain`) | [RAG Pipelines & ChromaDB](#chroma-rag-chains) |
+| **Phase 7** | **RAG Chain Construction & Memory** | LCEL RAG Chains, Conversational RAG with Chat History (`create_history_aware_retriever`), Pre-built Chains (`create_stuff_documents_chain` & `create_retrieval_chain`) | [RAG Pipelines & Chains](#topic-7-rag-chains) |
 | **Phase 7.1** | **Chain Architecture Decision Framework** | 🎯 **Deep Dive: When to Use vs. When NOT to Use `format_docs`** in LangChain (LCEL vs. Pre-built Helpers Comparison Matrix) | [format_docs Decision Guide](#format-docs-deep-dive) |
 | **Phase 8** | **Strategic Customization Tradeoffs** | Fine-Tuning vs RAG vs Prompt Engineering: Decision Matrix, Knowledge Freshness, Hallucination Reduction, Cost and Compute Budgets | [Fine-Tuning vs. RAG](#topic-3-finetuning-vs-rag) |
 | **Phase 9** | **Multimodal Data & Vision-Native RAG** | Multimodal AI Workflows, Classic Document OCR vs Visual-Native (ColPali) Architecture, Multimodal RAG with CLIP Joint Embedding Space & GPT-4o Vision | [Multimodal AI](#topic-12-multimodal-ai) • [Visual RAG Architecture](#topic-13-multimodal-rag-architecture) |
@@ -28,21 +28,25 @@
 
 1. [Phase 1: 08_langchain_updated_version1.1 — Modern Agent Architecture & LCEL](#topic-1-langchain-v11)
 2. [Phase 2: RAG (Retrieval-Augmented Generation) — Fundamentals & 10 Chunking Strategies](#topic-2-rag)
-3. [Phase 8: Fine-Tuning vs. RAG — Strategic Customization Framework](#topic-3-finetuning-vs-rag)
+3. [Phase 3: Semantic Chunking — Meaning-Based Splitting](#topic-5-semantic-chunking)
 4. [Phase 4: Vector Store vs. Vector Databases — Hands-on Chroma, FAISS, Pinecone, AstraDB, Qdrant](#topic-4-vector-db)
-   * [Phase 7: ChromaDB End-to-End RAG Chains & Conversational Memory](#chroma-rag-chains)
-   * [Phase 7.1: 🎯 LangChain format_docs Deep-Dive: When to Use vs. When NOT to Use](#format-docs-deep-dive)
-5. [Phase 3: Semantic Chunking — Meaning-Based Splitting](#topic-5-semantic-chunking)
-6. [Phase 6: Dense + Sparse Retrieval (Hybrid Search) — BM25 + Vector Fusion](#topic-6-hybrid-search)
-7. [Phase 6: Reranking — Cross-Encoder Precision Re-ordering](#topic-7-reranking)
-8. [Phase 6: MMR (Maximal Marginal Relevance) — Novelty & Diversity Optimization](#topic-8-mmr)
-9. [Phase 5: Query Expansion Technique — LLM-Generated Synonyms & Formulations](#topic-9-query-expansion)
-10. [Phase 5: Query Decomposition — Multi-hop Atomic Breakdown](#topic-10-query-decomposition)
-11. [Phase 5: HyDE (Hypothetical Document Embeddings) — Solving Query-Doc Asymmetry](#topic-11-hyde)
-12. [Phase 9: Multimodal AI — Architecture & Classic OCR vs. Visual-Native ColPali](#topic-12-multimodal-ai)
-13. [Phase 9: Multimodal RAG & AI Architecture — CLIP Joint Embedding & Cross-Modal Retrieval](#topic-13-multimodal-rag-architecture)
-14. [Phase 10: AI Agents vs. Agentic AI — Autonomous Multi-Agent Architectures](#topic-14-agentic-ai)
-15. [Phase 11: Example: Why We Need Agentic AI (Software Development Workflow)](#topic-15-agentic-sdlc)
+5. [Phase 5: Pre-Retrieval Query Transformation — Expansion, Decomposition & HyDE](#topic-9-query-expansion)
+   * [Phase 5.1: Query Expansion Technique](#topic-9-query-expansion)
+   * [Phase 5.2: Query Decomposition](#topic-10-query-decomposition)
+   * [Phase 5.3: HyDE (Hypothetical Document Embeddings)](#topic-11-hyde)
+6. [Phase 6: Advanced Retrieval & Precision Ranking — Hybrid Search, Reranking & MMR](#topic-6-hybrid-search)
+   * [Phase 6.1: Dense + Sparse Retrieval (Hybrid Search)](#topic-6-hybrid-search)
+   * [Phase 6.2: Reranking (Cross-Encoder Precision)](#topic-7-reranking)
+   * [Phase 6.3: MMR (Maximal Marginal Relevance)](#topic-8-mmr)
+7. [Phase 7: RAG Chain Construction, Conversational Memory & format_docs Decision Framework](#topic-7-rag-chains)
+   * [Phase 7.1: LCEL Custom RAG Pipelines & Conversational Chains](#chroma-rag-chains)
+   * [Phase 7.2: 🎯 LangChain format_docs Deep-Dive: When to Use vs. When NOT to Use](#format-docs-deep-dive)
+8. [Phase 8: Fine-Tuning vs. RAG — Strategic Customization Framework](#topic-3-finetuning-vs-rag)
+9. [Phase 9: Multimodal AI & Vision-Native RAG Architecture](#topic-12-multimodal-ai)
+   * [Phase 9.1: Multimodal AI (Classic OCR vs. Visual-Native ColPali)](#topic-12-multimodal-ai)
+   * [Phase 9.2: Multimodal RAG & AI Architecture (CLIP Joint Embedding)](#topic-13-multimodal-rag-architecture)
+10. [Phase 10: AI Agents vs. Agentic AI — Autonomous Multi-Agent Architectures](#topic-14-agentic-ai)
+11. [Phase 11: Example: Why We Need Agentic AI (Software Development Workflow)](#topic-15-agentic-sdlc)
 
 ---
 
@@ -960,142 +964,53 @@ Content: It utilizes a reciprocal rank fusion algorithm to merge candidate sets 
  </details>
 
 
-<details><summary><a id="topic-3-finetuning-vs-rag" name="topic-3-finetuning-vs-rag"></a>Phase 8: Fine-Tuning vs. RAG — Needed to decide between adapting LLM style/tone (Fine-Tuning) vs. injecting dynamic external knowledge (RAG)</summary>
+<details><summary><a id="topic-5-semantic-chunking" name="topic-5-semantic-chunking"></a>Phase 3: Semantic Chunking — Needed to split documents by topic/meaning boundaries instead of fixed token lengths to preserve context</summary>
 
+*Semantic Chunking is a text-splitting technique that divides content based on meaning instead of fixed size or paragraphs.*
+  
+**Semantic Chunking**:
 
----
+## Overview
 
-# AI Customization Methods: A Beginner's Guide
+**Semantic Chunking** is the process of splitting a document into meaningful units (chunks) based on **semantic similarity** rather than fixed criteria like token count or line numbers.
 
-A comparison of the three primary ways to customize Large Language Models (LLMs): Prompt Engineering, Fine-tuning, and RAG.
+In Retrieval-Augmented Generation (RAG) systems, semantic chunking improves performance through the pipeline:
 
-## 1. Prompt Engineering
+$$\text{Better chunks} \rightarrow \text{Better retrieval} \rightarrow \text{Better grounding} \rightarrow \text{Better answers}$$
 
-**Concept:** Teaching through instructions. The underlying AI model itself remains completely unchanged.
-
-### 📊 Diagram Flow
-
-```text
-[User Prompt: "Act as an expert chef..."] 
-                    ↓
-        [Base LLM (Remains Unchanged)] 
-                    ↓
-          [Customized Output]
-
-```
-
-### 📝 Key Details
-
-* **How it Works:**
-* Write specific instructions in your prompt.
-* Structure prompts with clear context.
-* Use examples (few-shot learning).
-
-
-* **Pros:**
-* No technical expertise needed.
-* Instant results.
-* Free (no training costs).
-* Highly flexible and works with any LLM.
-
-
-* **Cons:**
-* Strictly limited by the model's existing base knowledge.
-* Can yield inconsistent results.
-* Token limits restrict how complex you can make the prompt.
-* Cannot add new, permanent knowledge to the model.
-
-
-* **Best For:** Quick prototyping, small-scale applications, general-purpose tasks, and when you need maximum flexibility.
+Chunks generated via this method are designed to be **self-contained, contextually rich, and logically separated**.
 
 ---
 
-## 2. Fine-Tuning
+## How It Works (Step-by-Step)
 
-**Concept:** Teaching through training. It alters the model's permanent weights to create a specialized version of the original AI.
-
-### 📊 Diagram Flow
-
-```text
-[Base LLM (Original Weights)]  +  [Domain-Specific Training Data]
-                               ↓
-                            (Train)
-                               ↓
-        [Fine-Tuned LLM (Modified Weights / Specialized)]
-
-```
-
-### 📝 Key Details
-
-* **How it Works:**
-* Prepare domain-specific training data.
-* Train the base model on your data.
-* Model weights are permanently changed to create a specialized version.
-
-
-* **Pros:**
-* Creates deeply specialized knowledge and consistent behavior.
-* Eliminates the need for complex prompt engineering.
-* Can learn specific new writing styles.
-* Significantly better for highly specific domains.
-
-
-* **Cons:**
-* Expensive to execute (can cost $1000s – $10000s).
-* Requires Machine Learning (ML) expertise.
-* Needs complete retraining for any informational updates.
-* The model can sometimes "forget" general knowledge during training.
-
-
-* **Best For:** Highly specific writing styles or tones, domain-specific language, high-volume/consistent tasks, and situations where accuracy is critical.
+1. **Document Segmentation:** The document is split into smaller units, such as individual sentences or paragraphs.
+2. **Sentence Embedding:** Each sentence/unit is converted into a vector representation using an embedding model.
+3. **Semantic Similarity Check:** The similarity (e.g., Cosine Similarity) between adjacent sentence embeddings is calculated and compared against a defined threshold (e.g., $0.80$).
+4. **Sentence Merging:** Adjacent sentences are merged into a single chunk if their similarity score meets or exceeds the threshold.
+5. **Form Chunks:** The process outputs grouped chunks containing semantically related sentences, while distinct sentences are separated into standalone chunks.
 
 ---
 
-## 3. RAG (Retrieval-Augmented Generation)
+## Example
 
-**Concept:** Teaching through retrieval. It pulls in outside information in real-time to help the AI answer a query accurately.
+Given the input text:
 
-### 📊 Diagram Flow
+1. *"LangChain is a framework for building LLM-powered apps."*
+2. *"It integrates with tools like OpenAI and Pinecone."*
+3. *"The Eiffel Tower is located in Paris."*
+4. *"France is a popular tourist destination."*
 
-```text
-[User Query] ─────────────> [Vector Database / Knowledge Base]
-      ↓                                   ↓
-      └─────────> [Retrieved Relevant Documents]
-                                  ↓
-                              [Base LLM]
-                                  ↓
-                        [Augmented Response]
+**Output Chunks:**
 
-```
+* **Chunk 1:** `["LangChain is a framework...", "It integrates with tools..."]` *(Merged because both discuss LangChain/LLMs)*
+* **Chunk 2:** `["The Eiffel Tower is located in Paris."]`
+* **Chunk 3:** `["France is a popular tourist destination."]`
 
-### 📝 Key Details
+  [33-Semantic+Chunking.pdf](https://github.com/user-attachments/files/29892074/33-Semantic%2BChunking.pdf)
 
-* **How it Works:**
-* Store company documents or data in a Vector Database.
-* Retrieve relevant documents for each specific query.
-* Combine the retrieved documents with the query to serve as context.
-* The LLM generates an answer based strictly on that context.
-
-
-* **Pros:**
-* Always provides up-to-date information.
-* Requires no model training (highly cost-effective).
-* Can safely handle private or proprietary data.
-* High accuracy with reduced hallucination.
-
-
-* **Cons:**
-* Requires initial infrastructure setup (like Vector DBs).
-* The final result is heavily dependent on the quality of the retrieval step.
-* Context window limitations still apply.
-* Adds latency (delay) to the response time due to the retrieval step.
-
-
-* **Best For:** Knowledge bases and documentation, real-time or frequently updated info, customer support systems, and compliance-heavy industries.
-
-  [5-Promptvsfinetunignvsrag.pdf](https://github.com/user-attachments/files/29892064/5-Promptvsfinetunignvsrag.pdf)
-
-  </details>
+*You can find the documentation in the [Text Representation tech. Repo](https://github.com/Shivanshvyas1729/pydantic_notes/blob/main/nlp/Text%20Representation%20tech.md).*
+</details>
 
 
 <details><summary><a id="topic-4-vector-db" name="topic-4-vector-db"></a>Phase 4: Vector Store vs. Vector Databases — Needed for high-dimensional embedding storage and fast semantic similarity search at scale</summary>
@@ -1323,170 +1238,20 @@ for doc in filtered_results:
     print(f"[{doc.metadata['topic']}] {doc.page_content}")
 ```
 
-#### 🚀 Step 6: Converting to Retriever & Building RAG Chains <a id="chroma-rag-chains"></a>
+#### 🚀 Step 6: Converting to Retriever (Quick Reference)
 ```python
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.runnables import RunnablePassthrough
-from langchain_core.output_parsers import StrOutputParser
-from langchain.chat_models import init_chat_model
-
-# 1. Convert vector store to retriever
+# Convert vector store to retriever for RAG pipelines
 retriever = vectorstore.as_retriever(
     search_type="similarity", # or "mmr", "similarity_score_threshold"
     search_kwargs={"k": 3}
 )
-
-# 2. Format helper
-def format_docs(docs):
-    return "\n\n".join(doc.page_content for doc in docs)
-
-# 3. Initialize LLM (OpenAI or Groq)
-llm = init_chat_model("gpt-4o-mini")
-
-# 4. Prompt Template
-prompt = ChatPromptTemplate.from_template("""
-Answer the question based ONLY on the provided context:
-
-Context:
-{context}
-
-Question:
-{question}
-
-Answer:
-""")
-
-# 5. Build LCEL RAG Chain
-rag_chain = (
-    {"context": retriever | format_docs, "question": RunnablePassthrough()}
-    | prompt
-    | llm
-    | StrOutputParser()
-)
-
-response = rag_chain.invoke("What is reinforcement learning?")
-print("RAG Response:\n", response)
 ```
 
-#### 🧠 Step 7: Advanced Conversational RAG with Chat History
-```python
-from langchain_core.prompts import MessagesPlaceholder
-from langchain_core.messages import HumanMessage, AIMessage
-from langchain.chains import create_history_aware_retriever, create_retrieval_chain
-from langchain.chains.combine_documents import create_stuff_documents_chain
-
-# 1. Contextualize Question Prompt (Re-writes user question considering history)
-contextualize_q_system_prompt = """Given a chat history and the latest user question \
-which might reference context in the chat history, formulate a standalone question \
-which can be understood without the chat history. Do NOT answer the question, \
-just reformulate it if needed and otherwise return it as is."""
-
-contextualize_q_prompt = ChatPromptTemplate.from_messages([
-    ("system", contextualize_q_system_prompt),
-    MessagesPlaceholder("chat_history"),
-    ("human", "{input}"),
-])
-
-history_aware_retriever = create_history_aware_retriever(
-    llm, retriever, contextualize_q_prompt
-)
-
-# 2. QA Prompt with Context & History
-qa_system_prompt = """You are an assistant for question-answering tasks. \
-Use the following pieces of retrieved context to answer the question. \
-If you don't know the answer, say that you don't know. Use three sentences maximum and keep the answer concise.\n\n{context}"""
-
-qa_prompt = ChatPromptTemplate.from_messages([
-    ("system", qa_system_prompt),
-    MessagesPlaceholder("chat_history"),
-    ("human", "{input}"),
-])
-
-question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
-rag_conversational_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
-
-# 3. Multi-turn execution
-chat_history = []
-
-# Turn 1
-q1 = "What is machine learning?"
-res1 = rag_conversational_chain.invoke({"input": q1, "chat_history": chat_history})
-print("Turn 1 Answer:", res1["answer"])
-chat_history.extend([HumanMessage(content=q1), AIMessage(content=res1["answer"])])
-
-# Turn 2 (Follow-up relying on history context)
-q2 = "What are its main subsets mentioned in the context?"
-res2 = rag_conversational_chain.invoke({"input": q2, "chat_history": chat_history})
-print("Turn 2 Answer:", res2["answer"])
-```
+> 🔗 **Production RAG Chains & Conversational Memory Pipelines:**
+> For the complete implementations of **Custom LCEL RAG Chains**, **Multi-Turn Conversational RAG with Chat History (`create_history_aware_retriever`)**, and the **`format_docs` Decision Framework**, jump directly to **[Phase 7: RAG Chain Construction, Conversational Memory & format_docs Decision Framework](#topic-7-rag-chains)**.
 
 </details>
 
-<br>
-
-<details open id="format-docs-deep-dive">
-<summary><a id="format-docs-deep-dive" name="format-docs-deep-dive"></a><b>🎯 LangChain format_docs Deep-Dive: When to Use vs. When NOT to Use</b></summary>
-
-In LangChain, deciding whether you need a `format_docs` helper depends entirely on **how your chain is constructed**:
-
----
-
-### 1. **When to USE `format_docs`** 
-👉 **When building custom LCEL (LangChain Expression Language) chains directly.**
-
-```python
-# Pure LCEL Pipeline
-rag_chain = (
-    {"context": retriever | format_docs, "question": RunnablePassthrough()}
-    | prompt
-    | llm
-    | StrOutputParser()
-)
-```
-
-#### Why it's needed here:
-- `retriever` returns a Python list of `Document` objects (`List[Document]`).
-- A standard `ChatPromptTemplate` expects a **string** for `{context}`.
-- If you pass `List[Document]` directly without `format_docs`, the prompt will receive the raw Python object representation (e.g. `[Document(page_content='...'), ...]`), wasting tokens and confusing the LLM.
-- **You also use `format_docs` when you want custom formatting**, such as injecting metadata/source attribution into the context:
-  ```python
-  def format_docs_with_sources(docs):
-      return "\n\n".join(
-          f"Source: {doc.metadata.get('source', 'Unknown')} (Page {doc.metadata.get('page', 'N/A')}):\n{doc.page_content}"
-          for doc in docs
-      )
-  ```
-
----
-
-### 2. **When NOT to use `format_docs`**
-👉 **When using LangChain’s pre-built helper chains like `create_stuff_documents_chain` and `create_retrieval_chain`.**
-
-```python
-# Built-in LangChain Helpers
-question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
-rag_conversational_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
-```
-
-#### Why you don't need it here:
-- `create_stuff_documents_chain` is built specifically to accept `List[Document]` as its input.
-- **It formats documents internally** using its default document template (`{page_content}`) and joins them with `\n\n`.
-- `create_retrieval_chain` passes the raw `docs` into `create_stuff_documents_chain`, and also preserves the original `List[Document]` in the final output dictionary (`response["context"]`), allowing you to inspect sources, scores, or metadata later.
-- If you manually pass a pre-formatted string instead of `List[Document]` to `create_stuff_documents_chain`, it will fail because it expects document objects.
-
----
-
-### Quick Comparison Summary
-
-| Feature | LCEL Chain (`retriever \| format_docs \| prompt`) | Pre-built Chain (`create_stuff_documents_chain`) |
-| :--- | :--- | :--- |
-| **`format_docs` required?** | **Yes** (Must convert `List[Document]` $\rightarrow$ `str`) | **No** (Handles formatting internally) |
-| **Input to `{context}` in prompt** | Plain String | Raw `List[Document]` handled under the hood |
-| **Final Output** | Typically just the string response | Dictionary containing `answer` + raw `context` docs |
-| **Custom formatting** | Handled in your Python function | Configured via `document_prompt` & `document_separator` |
-| **Best suited for** | Lightweight, fully customized, streaming LCEL pipelines | Standard RAG, multi-turn chat history, and source tracking |
-
-</details>
 
 <br>
 
@@ -2256,52 +2021,165 @@ LangChain provides a unified interface across all vector stores. Any vector stor
 </details>
 
 
-<details><summary><a id="topic-5-semantic-chunking" name="topic-5-semantic-chunking"></a>Phase 3: Semantic Chunking — Needed to split documents by topic/meaning boundaries instead of fixed token lengths to preserve context</summary>
+<details><summary><a id="topic-9-query-expansion" name="topic-9-query-expansion"></a>Phase 5: Query Expansion Technique — Needed to generate query variations and synonyms to catch documents using different phrasing</summary>
 
-*Semantic Chunking is a text-splitting technique that divides content based on meaning instead of fixed size or paragraphs.*
+ **Query Expansion Technique** 
+
+
+
+## 📌 Overview: Query Enhancement
+
+In a Retrieval-Augmented Generation (**RAG**) pipeline, the quality of the user query directly dictates the context retrieved, which in turn determines the accuracy of the LLM's final response.
+
+> **Query Enhancement / Expansion** is the technique of refining, reformulating, or expanding an initial user query before sending it to the retriever to ensure higher-quality context retrieval.
+
+---
+
+## 🎯 When to Use Query Expansion
+
+* **Short/Under-specified Queries:** When the initial prompt lacks context or depth.
+* **Ambiguous Prompts:** When keywords have multiple potential interpretations.
+* **Broader Scope:** To capture synonyms, related domain concepts, and common spelling variants.
+
+---
+
+## 🔄 Query Expansion Examples
+
+| Original Query | Enhanced Query |
+| --- | --- |
+| `"LangChain memory"` | `"LangChain memory modules, conversation memory"` |
+| `"tools in LLM"` | `"LangChain tools, APIs, calculator, agent tools"` |
+| `"retrieval"` | `"vector retrieval, dense search, BM25, MMR"` |
+
+---
+
+## ⚡ The Chain Reaction
+
+$$\text{Better Query} \longrightarrow \text{Better Retrieved Chunks} \longrightarrow \text{Better Grounded LLM Answers}$$
+
+---
+
+## 🏗️ Query Expansion Workflow / Architecture
+
+1. **Input Query:** The raw user input is received.
+2. **Query Enhancement Step:** An internal LLM with a specific prompt (or chain execution) expands/refines the original query into an enhanced version.
+3. **Retriever:** The enhanced query is sent to the **Vector Store** / Retriever (e.g., using **FAISS** or **Hybrid Search**).
+4. **Top-K Documents:** The retriever returns the initial top $k$ relevant chunks.
+5. **Re-Ranker:** Re-ranks the retrieved top $k$ documents to ensure the most relevant context is prioritized.
+6. **Final LLM Output:** The ordered context is passed to the LLM to generate the final output.
+7.
+8. <img width="611" height="538" alt="image" src="https://github.com/user-attachments/assets/4e5c34d0-9ec2-4a37-a2d8-406faf767fec" />
+</details>
+
+
+<details><summary><a id="topic-10-query-decomposition" name="topic-10-query-decomposition"></a>Phase 5: Query Decomposition — Needed to break complex, multi-part questions into simpler sub-queries for targeted multi-step retrieval</summary>
   
-**Semantic Chunking**:
-
-## Overview
-
-**Semantic Chunking** is the process of splitting a document into meaningful units (chunks) based on **semantic similarity** rather than fixed criteria like token count or line numbers.
-
-In Retrieval-Augmented Generation (RAG) systems, semantic chunking improves performance through the pipeline:
-
-$$\text{Better chunks} \rightarrow \text{Better retrieval} \rightarrow \text{Better grounding} \rightarrow \text{Better answers}$$
-
-Chunks generated via this method are designed to be **self-contained, contextually rich, and logically separated**.
+ **Query Decomposition** 
 
 ---
 
-## How It Works (Step-by-Step)
+## 📌 Query Enhancement: Query Decomposition
 
-1. **Document Segmentation:** The document is split into smaller units, such as individual sentences or paragraphs.
-2. **Sentence Embedding:** Each sentence/unit is converted into a vector representation using an embedding model.
-3. **Semantic Similarity Check:** The similarity (e.g., Cosine Similarity) between adjacent sentence embeddings is calculated and compared against a defined threshold (e.g., $0.80$).
-4. **Sentence Merging:** Adjacent sentences are merged into a single chunk if their similarity score meets or exceeds the threshold.
-5. **Form Chunks:** The process outputs grouped chunks containing semantically related sentences, while distinct sentences are separated into standalone chunks.
+### 1. What is Query Decomposition?
+
+**Query Decomposition** is the technique of taking a complex, multi-part user question and breaking it down into simpler, atomic sub-questions that can be retrieved and answered individually.
 
 ---
 
-## Example
+### 2. Why Use Query Decomposition?
 
-Given the input text:
+* **Handles Multi-Concept Queries:** Complex user requests often combine multiple topics that a single retrieval step might miss.
+* **Improves Retrieval Accuracy:** LLMs or standard retrievers can overlook parts of a long or dense prompt.
+* **Enables Multi-Hop Reasoning:** Allows answering complex questions step-by-step.
+* **Supports Parallel Processing:** Sub-questions can be processed in parallel across multiple retrievers or agents (especially within multi-agent frameworks).
 
-1. *"LangChain is a framework for building LLM-powered apps."*
-2. *"It integrates with tools like OpenAI and Pinecone."*
-3. *"The Eiffel Tower is located in Paris."*
-4. *"France is a popular tourist destination."*
+---
 
-**Output Chunks:**
+### 3. How It Works (Workflow Breakdown)
 
-* **Chunk 1:** `["LangChain is a framework...", "It integrates with tools..."]` *(Merged because both discuss LangChain/LLMs)*
-* **Chunk 2:** `["The Eiffel Tower is located in Paris."]`
-* **Chunk 3:** `["France is a popular tourist destination."]`
+1. **User Query Input:** A complex query is received (e.g., *"What memory modules does LangChain support and how are they different from CrewAI Agents?"*).
+2. **Decomposition Layer:**
+* Uses **LLM + Prompting** or **Regex / Rule-based Operations** to split the main query into smaller sub-queries:
+* **Sub-Query 1:** *What memory modules does LangChain support?*
+* **Sub-Query 2:** *What memory modules/agents does CrewAI support?*
+* **Sub-Query 3:** *LangChain memory vs. CrewAI agents.*
 
-  [33-Semantic+Chunking.pdf](https://github.com/user-attachments/files/29892074/33-Semantic%2BChunking.pdf)
 
-*You can find the documentation in the [Text Representation tech. Repo](https://github.com/Shivanshvyas1729/pydantic_notes/blob/main/nlp/Text%20Representation%20tech.md).*
+
+
+3. **Retrieval & LLM Calls (Parallel/Sequential):**
+* Each sub-query goes to a **Retriever** to gather relevant context (**Top-K Context**).
+* Each context + prompt is passed to an **LLM** to generate sub-answers ($O_1, O_2, O_3$).
+
+
+4. **Answer Synthesis:**
+* An **Answer Combiner / Synthesizer** merges $O_1, O_2,$ and $O_3$ into a single, cohesive **Final Answer**.
+
+
+
+---
+
+### 4. Major Disadvantage ⚠️
+
+* **Increased Latency & Cost:** Performing multiple retrieval steps and several LLM calls per user request significantly increases processing time and API token usage.
+  <img width="638" height="545" alt="image" src="https://github.com/user-attachments/assets/d07990de-cf22-4c1d-9f33-b03ef3513c14" />
+  
+</details>
+
+
+<details><summary><a id="topic-11-hyde" name="topic-11-hyde"></a>Phase 5: HyDE (Hypothetical Document Embeddings) — Needed to bridge vocabulary gaps in short/vague queries by embedding LLM-generated hypothetical answers</summary>
+**Hypothetical Document Embeddings (HyDE)** :
+
+---
+
+# Study Notes: Hypothetical Document Embeddings (HyDE)
+
+## 1. What is HyDE?
+
+**HyDE (Hypothetical Document Embeddings)** is an advanced retrieval-augmented generation (RAG) technique. Instead of embedding a user's raw query directly into a vector space, HyDE uses an LLM to first generate a **hypothetical answer (document)**, and then embeds that generated document to search the vector database.
+
+* **Core Goal:** Bridge the semantic gap between how users ask questions and how information is phrased in source documents.
+
+---
+
+## 2. When to Use HyDE
+
+HyDE is especially useful when:
+
+* **Short Queries:** The user's input lacks rich context or detail.
+* **Language/Phrasing Mismatch:** The vocabulary in the question differs significantly from the phrasing in the target documents.
+* **Answer-Centric Retrieval:** You need to retrieve content based on what an **answer** looks like rather than matching question keywords.
+
+---
+
+## 3. How HyDE Works (Workflow)
+
+```text
+[ User Query ] ──► [ LLM ] ──► [ Hypothetical Answer ] ──► [ Embedding Model ]
+                                                                   │
+[ Final Output ] ◄── [ LLM ] ◄── [ Top-K Docs ] ◄── [ Vector Retriever ]
+
+```
+
+1. **Query Input:** User provides a query.
+2. **Hypothetical Generation:** An LLM generates a plausible (hypothetical) response to the query.
+3. **Vector Embedding:** The hypothetical response is converted into a vector embedding.
+4. **Retrieval:** The vector database retrieves the **Top-K** actual documents matching the hypothetical embedding.
+5. **RAG Completion:** The retrieved ground-truth documents are passed to the LLM to form the final accurate answer.
+
+---
+
+## 4. Problem vs. Solution & Key Benefits
+
+| Feature / Problem | How HyDE Helps |
+| --- | --- |
+| **Vocabulary Mismatch** | Embeds answer-style structure rather than search keywords. |
+| **Vague Queries** | LLM-generated hypothetical content adds rich semantic context. |
+| **Target Representation** | Models what a relevant document is likely to look like. |
+| **Zero-Shot Retrieval** | Delivers strong retrieval performance without task-specific retraining. |
+| **Plug-and-Play** | Easy to integrate with existing providers (e.g., OpenAI, Cohere, Hugging Face). |
+<img width="515" height="231" alt="image" src="https://github.com/user-attachments/assets/26307b0f-6aa7-4595-a621-41db55476ab7" />
+
 </details>
 
 
@@ -2534,166 +2412,317 @@ $$\text{MMR}(D3) = (0.7 \cdot 0.80) - (0.3 \cdot 0.30) = 0.560 - 0.090 = \mathbf
 </details>
 
 
-<details><summary><a id="topic-9-query-expansion" name="topic-9-query-expansion"></a>Phase 5: Query Expansion Technique — Needed to generate query variations and synonyms to catch documents using different phrasing</summary>
+<details><summary><a id="topic-7-rag-chains" name="topic-7-rag-chains"></a>Phase 7: RAG Chain Construction, Conversational Memory & format_docs Decision Framework — Needed for LCEL orchestration, history-aware retrieval & doc formatting</summary>
 
- **Query Expansion Technique** 
+# Phase 7: RAG Chain Construction & Conversational Memory Pipelines
 
-
-
-## 📌 Overview: Query Enhancement
-
-In a Retrieval-Augmented Generation (**RAG**) pipeline, the quality of the user query directly dictates the context retrieved, which in turn determines the accuracy of the LLM's final response.
-
-> **Query Enhancement / Expansion** is the technique of refining, reformulating, or expanding an initial user query before sending it to the retriever to ensure higher-quality context retrieval.
+This module provides the core architectural patterns for connecting retrievers (Vector DBs) to Large Language Models (LLMs), managing multi-turn conversational chat history, and mastering the crucial architectural decision of when to use `format_docs`.
 
 ---
 
-## 🎯 When to Use Query Expansion
+#### 🚀 Step 6: Converting to Retriever & Building RAG Chains <a id="chroma-rag-chains"></a>
+```python
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnablePassthrough
+from langchain_core.output_parsers import StrOutputParser
+from langchain.chat_models import init_chat_model
 
-* **Short/Under-specified Queries:** When the initial prompt lacks context or depth.
-* **Ambiguous Prompts:** When keywords have multiple potential interpretations.
-* **Broader Scope:** To capture synonyms, related domain concepts, and common spelling variants.
+# 1. Convert vector store to retriever
+retriever = vectorstore.as_retriever(
+    search_type="similarity", # or "mmr", "similarity_score_threshold"
+    search_kwargs={"k": 3}
+)
+
+# 2. Format helper
+def format_docs(docs):
+    return "\n\n".join(doc.page_content for doc in docs)
+
+# 3. Initialize LLM (OpenAI or Groq)
+llm = init_chat_model("gpt-4o-mini")
+
+# 4. Prompt Template
+prompt = ChatPromptTemplate.from_template("""
+Answer the question based ONLY on the provided context:
+
+Context:
+{context}
+
+Question:
+{question}
+
+Answer:
+""")
+
+# 5. Build LCEL RAG Chain
+rag_chain = (
+    {"context": retriever | format_docs, "question": RunnablePassthrough()}
+    | prompt
+    | llm
+    | StrOutputParser()
+)
+
+response = rag_chain.invoke("What is reinforcement learning?")
+print("RAG Response:\n", response)
+```
+
+#### 🧠 Step 7: Advanced Conversational RAG with Chat History
+```python
+from langchain_core.prompts import MessagesPlaceholder
+from langchain_core.messages import HumanMessage, AIMessage
+from langchain.chains import create_history_aware_retriever, create_retrieval_chain
+from langchain.chains.combine_documents import create_stuff_documents_chain
+
+# 1. Contextualize Question Prompt (Re-writes user question considering history)
+contextualize_q_system_prompt = """Given a chat history and the latest user question \
+which might reference context in the chat history, formulate a standalone question \
+which can be understood without the chat history. Do NOT answer the question, \
+just reformulate it if needed and otherwise return it as is."""
+
+contextualize_q_prompt = ChatPromptTemplate.from_messages([
+    ("system", contextualize_q_system_prompt),
+    MessagesPlaceholder("chat_history"),
+    ("human", "{input}"),
+])
+
+history_aware_retriever = create_history_aware_retriever(
+    llm, retriever, contextualize_q_prompt
+)
+
+# 2. QA Prompt with Context & History
+qa_system_prompt = """You are an assistant for question-answering tasks. \
+Use the following pieces of retrieved context to answer the question. \
+If you don't know the answer, say that you don't know. Use three sentences maximum and keep the answer concise.\n\n{context}"""
+
+qa_prompt = ChatPromptTemplate.from_messages([
+    ("system", qa_system_prompt),
+    MessagesPlaceholder("chat_history"),
+    ("human", "{input}"),
+])
+
+question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
+rag_conversational_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
+
+# 3. Multi-turn execution
+chat_history = []
+
+# Turn 1
+q1 = "What is machine learning?"
+res1 = rag_conversational_chain.invoke({"input": q1, "chat_history": chat_history})
+print("Turn 1 Answer:", res1["answer"])
+chat_history.extend([HumanMessage(content=q1), AIMessage(content=res1["answer"])])
+
+# Turn 2 (Follow-up relying on history context)
+q2 = "What are its main subsets mentioned in the context?"
+res2 = rag_conversational_chain.invoke({"input": q2, "chat_history": chat_history})
+print("Turn 2 Answer:", res2["answer"])
+```
+
 
 ---
 
-## 🔄 Query Expansion Examples
+<details open id="format-docs-deep-dive">
+<summary><a id="format-docs-deep-dive" name="format-docs-deep-dive"></a><b>🎯 LangChain format_docs Deep-Dive: When to Use vs. When NOT to Use</b></summary>
 
-| Original Query | Enhanced Query |
-| --- | --- |
-| `"LangChain memory"` | `"LangChain memory modules, conversation memory"` |
-| `"tools in LLM"` | `"LangChain tools, APIs, calculator, agent tools"` |
-| `"retrieval"` | `"vector retrieval, dense search, BM25, MMR"` |
+In LangChain, deciding whether you need a `format_docs` helper depends entirely on **how your chain is constructed**:
 
 ---
 
-## ⚡ The Chain Reaction
+### 1. **When to USE `format_docs`** 
+👉 **When building custom LCEL (LangChain Expression Language) chains directly.**
 
-$$\text{Better Query} \longrightarrow \text{Better Retrieved Chunks} \longrightarrow \text{Better Grounded LLM Answers}$$
+```python
+# Pure LCEL Pipeline
+rag_chain = (
+    {"context": retriever | format_docs, "question": RunnablePassthrough()}
+    | prompt
+    | llm
+    | StrOutputParser()
+)
+```
+
+#### Why it's needed here:
+- `retriever` returns a Python list of `Document` objects (`List[Document]`).
+- A standard `ChatPromptTemplate` expects a **string** for `{context}`.
+- If you pass `List[Document]` directly without `format_docs`, the prompt will receive the raw Python object representation (e.g. `[Document(page_content='...'), ...]`), wasting tokens and confusing the LLM.
+- **You also use `format_docs` when you want custom formatting**, such as injecting metadata/source attribution into the context:
+  ```python
+  def format_docs_with_sources(docs):
+      return "\n\n".join(
+          f"Source: {doc.metadata.get('source', 'Unknown')} (Page {doc.metadata.get('page', 'N/A')}):\n{doc.page_content}"
+          for doc in docs
+      )
+  ```
 
 ---
 
-## 🏗️ Query Expansion Workflow / Architecture
+### 2. **When NOT to use `format_docs`**
+👉 **When using LangChain’s pre-built helper chains like `create_stuff_documents_chain` and `create_retrieval_chain`.**
 
-1. **Input Query:** The raw user input is received.
-2. **Query Enhancement Step:** An internal LLM with a specific prompt (or chain execution) expands/refines the original query into an enhanced version.
-3. **Retriever:** The enhanced query is sent to the **Vector Store** / Retriever (e.g., using **FAISS** or **Hybrid Search**).
-4. **Top-K Documents:** The retriever returns the initial top $k$ relevant chunks.
-5. **Re-Ranker:** Re-ranks the retrieved top $k$ documents to ensure the most relevant context is prioritized.
-6. **Final LLM Output:** The ordered context is passed to the LLM to generate the final output.
-7.
-8. <img width="611" height="538" alt="image" src="https://github.com/user-attachments/assets/4e5c34d0-9ec2-4a37-a2d8-406faf767fec" />
+```python
+# Built-in LangChain Helpers
+question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
+rag_conversational_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
+```
+
+#### Why you don't need it here:
+- `create_stuff_documents_chain` is built specifically to accept `List[Document]` as its input.
+- **It formats documents internally** using its default document template (`{page_content}`) and joins them with `\n\n`.
+- `create_retrieval_chain` passes the raw `docs` into `create_stuff_documents_chain`, and also preserves the original `List[Document]` in the final output dictionary (`response["context"]`), allowing you to inspect sources, scores, or metadata later.
+- If you manually pass a pre-formatted string instead of `List[Document]` to `create_stuff_documents_chain`, it will fail because it expects document objects.
+
+---
+
+### Quick Comparison Summary
+
+| Feature | LCEL Chain (`retriever \| format_docs \| prompt`) | Pre-built Chain (`create_stuff_documents_chain`) |
+| :--- | :--- | :--- |
+| **`format_docs` required?** | **Yes** (Must convert `List[Document]` $\rightarrow$ `str`) | **No** (Handles formatting internally) |
+| **Input to `{context}` in prompt** | Plain String | Raw `List[Document]` handled under the hood |
+| **Final Output** | Typically just the string response | Dictionary containing `answer` + raw `context` docs |
+| **Custom formatting** | Handled in your Python function | Configured via `document_prompt` & `document_separator` |
+| **Best suited for** | Lightweight, fully customized, streaming LCEL pipelines | Standard RAG, multi-turn chat history, and source tracking |
+
+</details>
+
 </details>
 
 
-<details><summary><a id="topic-10-query-decomposition" name="topic-10-query-decomposition"></a>Phase 5: Query Decomposition — Needed to break complex, multi-part questions into simpler sub-queries for targeted multi-step retrieval</summary>
-  
- **Query Decomposition** 
-
----
-
-## 📌 Query Enhancement: Query Decomposition
-
-### 1. What is Query Decomposition?
-
-**Query Decomposition** is the technique of taking a complex, multi-part user question and breaking it down into simpler, atomic sub-questions that can be retrieved and answered individually.
-
----
-
-### 2. Why Use Query Decomposition?
-
-* **Handles Multi-Concept Queries:** Complex user requests often combine multiple topics that a single retrieval step might miss.
-* **Improves Retrieval Accuracy:** LLMs or standard retrievers can overlook parts of a long or dense prompt.
-* **Enables Multi-Hop Reasoning:** Allows answering complex questions step-by-step.
-* **Supports Parallel Processing:** Sub-questions can be processed in parallel across multiple retrievers or agents (especially within multi-agent frameworks).
-
----
-
-### 3. How It Works (Workflow Breakdown)
-
-1. **User Query Input:** A complex query is received (e.g., *"What memory modules does LangChain support and how are they different from CrewAI Agents?"*).
-2. **Decomposition Layer:**
-* Uses **LLM + Prompting** or **Regex / Rule-based Operations** to split the main query into smaller sub-queries:
-* **Sub-Query 1:** *What memory modules does LangChain support?*
-* **Sub-Query 2:** *What memory modules/agents does CrewAI support?*
-* **Sub-Query 3:** *LangChain memory vs. CrewAI agents.*
-
-
-
-
-3. **Retrieval & LLM Calls (Parallel/Sequential):**
-* Each sub-query goes to a **Retriever** to gather relevant context (**Top-K Context**).
-* Each context + prompt is passed to an **LLM** to generate sub-answers ($O_1, O_2, O_3$).
-
-
-4. **Answer Synthesis:**
-* An **Answer Combiner / Synthesizer** merges $O_1, O_2,$ and $O_3$ into a single, cohesive **Final Answer**.
-
+<details><summary><a id="topic-3-finetuning-vs-rag" name="topic-3-finetuning-vs-rag"></a>Phase 8: Fine-Tuning vs. RAG — Needed to decide between adapting LLM style/tone (Fine-Tuning) vs. injecting dynamic external knowledge (RAG)</summary>
 
 
 ---
 
-### 4. Major Disadvantage ⚠️
+# AI Customization Methods: A Beginner's Guide
 
-* **Increased Latency & Cost:** Performing multiple retrieval steps and several LLM calls per user request significantly increases processing time and API token usage.
-  <img width="638" height="545" alt="image" src="https://github.com/user-attachments/assets/d07990de-cf22-4c1d-9f33-b03ef3513c14" />
-  
-</details>
+A comparison of the three primary ways to customize Large Language Models (LLMs): Prompt Engineering, Fine-tuning, and RAG.
 
+## 1. Prompt Engineering
 
-<details><summary><a id="topic-11-hyde" name="topic-11-hyde"></a>Phase 5: HyDE (Hypothetical Document Embeddings) — Needed to bridge vocabulary gaps in short/vague queries by embedding LLM-generated hypothetical answers</summary>
-**Hypothetical Document Embeddings (HyDE)** :
+**Concept:** Teaching through instructions. The underlying AI model itself remains completely unchanged.
 
----
-
-# Study Notes: Hypothetical Document Embeddings (HyDE)
-
-## 1. What is HyDE?
-
-**HyDE (Hypothetical Document Embeddings)** is an advanced retrieval-augmented generation (RAG) technique. Instead of embedding a user's raw query directly into a vector space, HyDE uses an LLM to first generate a **hypothetical answer (document)**, and then embeds that generated document to search the vector database.
-
-* **Core Goal:** Bridge the semantic gap between how users ask questions and how information is phrased in source documents.
-
----
-
-## 2. When to Use HyDE
-
-HyDE is especially useful when:
-
-* **Short Queries:** The user's input lacks rich context or detail.
-* **Language/Phrasing Mismatch:** The vocabulary in the question differs significantly from the phrasing in the target documents.
-* **Answer-Centric Retrieval:** You need to retrieve content based on what an **answer** looks like rather than matching question keywords.
-
----
-
-## 3. How HyDE Works (Workflow)
+### 📊 Diagram Flow
 
 ```text
-[ User Query ] ──► [ LLM ] ──► [ Hypothetical Answer ] ──► [ Embedding Model ]
-                                                                   │
-[ Final Output ] ◄── [ LLM ] ◄── [ Top-K Docs ] ◄── [ Vector Retriever ]
+[User Prompt: "Act as an expert chef..."] 
+                    ↓
+        [Base LLM (Remains Unchanged)] 
+                    ↓
+          [Customized Output]
 
 ```
 
-1. **Query Input:** User provides a query.
-2. **Hypothetical Generation:** An LLM generates a plausible (hypothetical) response to the query.
-3. **Vector Embedding:** The hypothetical response is converted into a vector embedding.
-4. **Retrieval:** The vector database retrieves the **Top-K** actual documents matching the hypothetical embedding.
-5. **RAG Completion:** The retrieved ground-truth documents are passed to the LLM to form the final accurate answer.
+### 📝 Key Details
+
+* **How it Works:**
+* Write specific instructions in your prompt.
+* Structure prompts with clear context.
+* Use examples (few-shot learning).
+
+
+* **Pros:**
+* No technical expertise needed.
+* Instant results.
+* Free (no training costs).
+* Highly flexible and works with any LLM.
+
+
+* **Cons:**
+* Strictly limited by the model's existing base knowledge.
+* Can yield inconsistent results.
+* Token limits restrict how complex you can make the prompt.
+* Cannot add new, permanent knowledge to the model.
+
+
+* **Best For:** Quick prototyping, small-scale applications, general-purpose tasks, and when you need maximum flexibility.
 
 ---
 
-## 4. Problem vs. Solution & Key Benefits
+## 2. Fine-Tuning
 
-| Feature / Problem | How HyDE Helps |
-| --- | --- |
-| **Vocabulary Mismatch** | Embeds answer-style structure rather than search keywords. |
-| **Vague Queries** | LLM-generated hypothetical content adds rich semantic context. |
-| **Target Representation** | Models what a relevant document is likely to look like. |
-| **Zero-Shot Retrieval** | Delivers strong retrieval performance without task-specific retraining. |
-| **Plug-and-Play** | Easy to integrate with existing providers (e.g., OpenAI, Cohere, Hugging Face). |
-<img width="515" height="231" alt="image" src="https://github.com/user-attachments/assets/26307b0f-6aa7-4595-a621-41db55476ab7" />
+**Concept:** Teaching through training. It alters the model's permanent weights to create a specialized version of the original AI.
 
-</details>
+### 📊 Diagram Flow
+
+```text
+[Base LLM (Original Weights)]  +  [Domain-Specific Training Data]
+                               ↓
+                            (Train)
+                               ↓
+        [Fine-Tuned LLM (Modified Weights / Specialized)]
+
+```
+
+### 📝 Key Details
+
+* **How it Works:**
+* Prepare domain-specific training data.
+* Train the base model on your data.
+* Model weights are permanently changed to create a specialized version.
+
+
+* **Pros:**
+* Creates deeply specialized knowledge and consistent behavior.
+* Eliminates the need for complex prompt engineering.
+* Can learn specific new writing styles.
+* Significantly better for highly specific domains.
+
+
+* **Cons:**
+* Expensive to execute (can cost $1000s – $10000s).
+* Requires Machine Learning (ML) expertise.
+* Needs complete retraining for any informational updates.
+* The model can sometimes "forget" general knowledge during training.
+
+
+* **Best For:** Highly specific writing styles or tones, domain-specific language, high-volume/consistent tasks, and situations where accuracy is critical.
+
+---
+
+## 3. RAG (Retrieval-Augmented Generation)
+
+**Concept:** Teaching through retrieval. It pulls in outside information in real-time to help the AI answer a query accurately.
+
+### 📊 Diagram Flow
+
+```text
+[User Query] ─────────────> [Vector Database / Knowledge Base]
+      ↓                                   ↓
+      └─────────> [Retrieved Relevant Documents]
+                                  ↓
+                              [Base LLM]
+                                  ↓
+                        [Augmented Response]
+
+```
+
+### 📝 Key Details
+
+* **How it Works:**
+* Store company documents or data in a Vector Database.
+* Retrieve relevant documents for each specific query.
+* Combine the retrieved documents with the query to serve as context.
+* The LLM generates an answer based strictly on that context.
+
+
+* **Pros:**
+* Always provides up-to-date information.
+* Requires no model training (highly cost-effective).
+* Can safely handle private or proprietary data.
+* High accuracy with reduced hallucination.
+
+
+* **Cons:**
+* Requires initial infrastructure setup (like Vector DBs).
+* The final result is heavily dependent on the quality of the retrieval step.
+* Context window limitations still apply.
+* Adds latency (delay) to the response time due to the retrieval step.
+
+
+* **Best For:** Knowledge bases and documentation, real-time or frequently updated info, customer support systems, and compliance-heavy industries.
+
+  [5-Promptvsfinetunignvsrag.pdf](https://github.com/user-attachments/files/29892064/5-Promptvsfinetunignvsrag.pdf)
+
+  </details>
 
 
 <details><summary><a id="topic-12-multimodal-ai" name="topic-12-multimodal-ai"></a>Phase 9: Multimodal AI — Needed to process and integrate heterogeneous data formats (text, images, audio, tables) in unified LLM workflows</summary>
