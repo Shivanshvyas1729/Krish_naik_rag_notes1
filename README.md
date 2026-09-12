@@ -1193,7 +1193,7 @@ chunks = text_splitter.split_documents(sample_docs)
 embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
 ```
 
-#### 🏗️ Step 2: Create & Persist Chroma Vector Store
+#### 🏗️ Step 2: Create & Persist Chroma Vector Store (`ingest.py`)
 ```python
 # Create persistent vector store on disk
 persist_directory = "./chroma_db"
@@ -1206,6 +1206,25 @@ vectorstore = Chroma.from_documents(
 )
 
 print(f"Total vectors stored in Chroma: {vectorstore._collection.count()}")
+```
+
+#### 🔄 Step 2.1: Reload Persisted Chroma Store Somewhere Else (`app.py` / Zero Re-Embedding)
+To load and use an already created Chroma store in a different script, API server, or module without re-ingesting or re-embedding documents:
+```python
+# In your app.py / api.py / query script:
+from langchain_chroma import Chroma
+from langchain_openai import OpenAIEmbeddings
+
+embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+
+# 🔹 Connect directly to the existing on-disk collection (No from_documents needed!)
+loaded_vectorstore = Chroma(
+    persist_directory="./chroma_db",
+    embedding_function=embeddings,
+    collection_name="rag_knowledge_base"
+)
+
+print(f"Loaded existing Chroma store with {loaded_vectorstore._collection.count()} vectors.")
 ```
 
 #### 🔍 Step 3: Direct Similarity Search & Scores
