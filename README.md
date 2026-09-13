@@ -1,87 +1,101 @@
-# Krish_naik_rag_notes
+# Production RAG & Agentic AI — Study Notes (Krish Naik)
+
+> **Source of Truth.** Do not remove content. All theory, code, examples, and version notes are intentional.
+>
+> Detailed notes on LangChain v1.1 updates: [langchain_updates.1.1.md](https://github.com/Shivanshvyas1729/Krish_naik_rag_notes/blob/main/langchain_updates.1.1.md)
 
 ---
 
-## 🗺️ Sequential End-to-End Production Project Lifecycle Index
-> **How a Production RAG & Agentic AI Project Flows Sequentially by Topic**
-> 
-> In real-world enterprise engineering, an end-to-end AI project follows a systematic, modular pipeline. Follow this sequential roadmap to navigate from foundational model setup to production-grade agentic deployment. Click any phase or topic to jump directly to its complete architecture, theory, and code implementations.
+## Pipeline Roadmap
 
-| Project Stage | Pipeline Phase | Core Architecture & Topics Covered | Direct Link |
+How a production RAG & Agentic AI project flows end-to-end. Click any link to jump to that section.
+
+| Phase | Name | What It Covers | Jump To |
 | :---: | :--- | :--- | :--- |
-| **Phase 1** | **Modern Foundations & Agent Engine** | Universal Model Initializer (`init_chat_model`), Streaming & Batching, Tool Binding (`model.bind_tools` vs `create_agent`), Canonical Messages, Structured Outputs (Pydantic / TypedDict), Agent Middleware & LCEL Runnables | [LangChain v1.1 & LangGraph Engine](#topic-1-langchain-v11) |
-| **Phase 2** | **RAG Fundamentals & Document Ingestion** | Ingestion Phase Mental Model, 10 Core Chunking Strategies (Fixed, Sentence, Paragraph, Recursive, Structure, Sliding, Token, Agentic, Hybrid), Business Impact & ROI | [RAG Architecture & Ingestion](#topic-2-rag) |
-| **Phase 3** | **Context Boundary Chunking** | Topic/meaning-aware text splitting via sentence embedding distance spikes and similarity threshold breakpoints | [Semantic Chunking](#topic-5-semantic-chunking) |
-| **Phase 4** | **High-Dimensional Vector Storage** | Vector Stores vs Vector DBs Architecture Matrix, Local Stores (ChromaDB, FAISS, InMemory), Cloud DBs (Pinecone Serverless, DataStax AstraDB, Qdrant), Distance Metrics (Cosine, L2, Dot Product) | [Vector Stores & Vector Databases](#topic-4-vector-db) |
-| **Phase 5** | **Pre-Retrieval Query Transformation** | **1. Query Expansion:** LLM synonyms and sub-aspects<br>**2. Query Decomposition:** Multi-hop problem breakdown<br>**3. HyDE:** Hypothetical Document Embeddings to solve question-document asymmetry | [Query Expansion](#topic-9-query-expansion) • [Decomposition](#topic-10-query-decomposition) • [HyDE](#topic-11-hyde) |
-| **Phase 6** | **Advanced Retrieval & Precision Ranking** | **1. Hybrid Search:** Combining Dense (Embeddings) + Sparse (BM25) with RRF<br>**2. Cross-Encoder Re-ranking:** Precision scoring to eliminate false positives<br>**3. MMR (Maximal Marginal Relevance):** Balancing relevance with diversity | [Hybrid Search](#topic-6-hybrid-search) • [Re-ranking](#topic-7-reranking) • [MMR](#topic-8-mmr) |
-| **Phase 7** | **RAG Chain Construction & Memory** | LCEL RAG Chains, Conversational RAG with Chat History (`create_history_aware_retriever`), Pre-built Chains (`create_stuff_documents_chain` & `create_retrieval_chain`) | [RAG Pipelines & Chains](#topic-7-rag-chains) |
-| **Phase 7.1** | **Chain Architecture Decision Framework** | 🎯 **Deep Dive: When to Use vs. When NOT to Use `format_docs`** in LangChain (LCEL vs. Pre-built Helpers Comparison Matrix) | [format_docs Decision Guide](#format-docs-deep-dive) |
-| **Phase 8** | **Strategic Customization Tradeoffs** | Fine-Tuning vs RAG vs Prompt Engineering: Decision Matrix, Knowledge Freshness, Hallucination Reduction, Cost and Compute Budgets | [Fine-Tuning vs. RAG](#topic-3-finetuning-vs-rag) |
-| **Phase 9** | **Multimodal Data & Vision-Native RAG** | Multimodal AI Workflows, Classic Document OCR vs Visual-Native (ColPali) Architecture, Multimodal RAG with CLIP Joint Embedding Space & GPT-4o Vision | [Multimodal AI](#topic-12-multimodal-ai) • [Visual RAG Architecture](#topic-13-multimodal-rag-architecture) |
-| **Phase 10** | **Autonomous Agentic AI Systems** | AI Agents vs Agentic AI (Reactive vs Goal-Driven Autonomous Systems), Human-in-the-Loop, Memory Compression | [AI Agents vs. Agentic AI](#topic-14-agentic-ai) |
-| **Phase 11** | **End-to-End Autonomous Pipeline Case Study** | Autonomous Software Development Lifecycle: Architecture, TDD Code Generation, Self-Debugging, Code Review & Git Push Automation | [Agentic SDLC Case Study](#topic-15-agentic-sdlc) |
+| **1** | Modern Foundations & Agent Engine | `init_chat_model`, streaming, batching, tool binding (`model.bind_tools` vs `create_agent`), messages, structured output, middleware, LCEL | [Phase 1](#topic-1-langchain-v11) |
+| **2** | RAG Fundamentals & Document Ingestion | Ingestion pipeline, 10 chunking strategies (Fixed, Sentence, Paragraph, Recursive, Structure, Sliding, Token, Agentic, Hybrid), business impact | [Phase 2](#topic-2-rag) |
+| **3** | Semantic Chunking | Meaning-aware splitting via sentence embedding distance spikes and similarity threshold breakpoints | [Phase 3](#topic-5-semantic-chunking) |
+| **4** | Vector Storage | Vector Stores vs Vector DBs, ChromaDB, FAISS, InMemory, Pinecone, AstraDB, Qdrant, distance metrics | [Phase 4](#topic-4-vector-db) |
+| **5** | Pre-Retrieval Query Transformation | Query Expansion (LLM synonyms), Query Decomposition (multi-hop), HyDE (hypothetical doc embeddings) | [Query Expansion](#topic-9-query-expansion) · [Decomposition](#topic-10-query-decomposition) · [HyDE](#topic-11-hyde) |
+| **6** | Advanced Retrieval & Ranking | Hybrid Search (Dense + BM25 + RRF), Cross-Encoder Re-ranking, MMR | [Hybrid Search](#topic-6-hybrid-search) · [Re-ranking](#topic-7-reranking) · [MMR](#topic-8-mmr) |
+| **7** | RAG Chain Construction & Memory | LCEL RAG chains, conversational memory with `create_history_aware_retriever`, pre-built chains | [Phase 7](#topic-7-rag-chains) |
+| **7.1** | `format_docs` Decision Guide | When to use vs. when NOT to use `format_docs` (LCEL vs. pre-built helpers) | [format_docs Guide](#format-docs-deep-dive) |
+| **8** | Fine-Tuning vs RAG | Decision matrix: knowledge freshness, hallucination reduction, cost | [Phase 8](#topic-3-finetuning-vs-rag) |
+| **9** | Multimodal RAG | OCR vs. Visual-Native (ColPali), CLIP joint embedding, GPT-4o Vision | [Multimodal AI](#topic-12-multimodal-ai) · [Architecture](#topic-13-multimodal-rag-architecture) |
+| **10** | Agentic AI Systems | AI Agents vs Agentic AI, human-in-the-loop, memory compression | [Phase 10](#topic-14-agentic-ai) |
+| **11** | Agentic SDLC Case Study | Autonomous software development lifecycle, TDD, self-debugging, Git automation | [Phase 11](#topic-15-agentic-sdlc) |
 
 ---
 
-## 📑 Complete Topic Index (Module Reference)
+## Topic Index
 
-1. [Phase 1: 08_langchain_updated_version1.1 — Modern Agent Architecture & LCEL](#topic-1-langchain-v11)
-2. [Phase 2: RAG (Retrieval-Augmented Generation) — Fundamentals & 10 Chunking Strategies](#topic-2-rag)
-3. [Phase 3: Semantic Chunking — Meaning-Based Splitting](#topic-5-semantic-chunking)
-4. [Phase 4: Vector Store vs. Vector Databases — Hands-on Chroma, FAISS, Pinecone, AstraDB, Qdrant](#topic-4-vector-db)
-5. [Phase 5: Pre-Retrieval Query Transformation — Expansion, Decomposition & HyDE](#topic-9-query-expansion)
-   * [Phase 5.1: Query Expansion Technique](#topic-9-query-expansion)
-   * [Phase 5.2: Query Decomposition](#topic-10-query-decomposition)
-   * [Phase 5.3: HyDE (Hypothetical Document Embeddings)](#topic-11-hyde)
-6. [Phase 6: Advanced Retrieval & Precision Ranking — Hybrid Search, Reranking & MMR](#topic-6-hybrid-search)
-   * [Phase 6.1: Dense + Sparse Retrieval (Hybrid Search)](#topic-6-hybrid-search)
-   * [Phase 6.2: Reranking (Cross-Encoder Precision)](#topic-7-reranking)
-   * [Phase 6.3: MMR (Maximal Marginal Relevance)](#topic-8-mmr)
-7. [Phase 7: RAG Chain Construction, Conversational Memory & format_docs Decision Framework](#topic-7-rag-chains)
-   * [Phase 7.1: LCEL Custom RAG Pipelines & Conversational Chains](#chroma-rag-chains)
-   * [Phase 7.2: 🎯 LangChain format_docs Deep-Dive: When to Use vs. When NOT to Use](#format-docs-deep-dive)
-8. [Phase 8: Fine-Tuning vs. RAG — Strategic Customization Framework](#topic-3-finetuning-vs-rag)
-9. [Phase 9: Multimodal AI & Vision-Native RAG Architecture](#topic-12-multimodal-ai)
-   * [Phase 9.1: Multimodal AI (Classic OCR vs. Visual-Native ColPali)](#topic-12-multimodal-ai)
-   * [Phase 9.2: Multimodal RAG & AI Architecture (CLIP Joint Embedding)](#topic-13-multimodal-rag-architecture)
-10. [Phase 10: AI Agents vs. Agentic AI — Autonomous Multi-Agent Architectures](#topic-14-agentic-ai)
-11. [Phase 11: Example: Why We Need Agentic AI (Software Development Workflow)](#topic-15-agentic-sdlc)
+1. [Phase 1 — LangChain v1.1 & LangGraph Agent Architecture](#topic-1-langchain-v11)
+2. [Phase 2 — RAG: Fundamentals & 10 Chunking Strategies](#topic-2-rag)
+3. [Phase 3 — Semantic Chunking](#topic-5-semantic-chunking)
+4. [Phase 4 — Vector Stores & Vector Databases](#topic-4-vector-db)
+5. [Phase 5 — Pre-Retrieval Query Transformation](#topic-9-query-expansion)
+   - [5.1 Query Expansion](#topic-9-query-expansion)
+   - [5.2 Query Decomposition](#topic-10-query-decomposition)
+   - [5.3 HyDE — Hypothetical Document Embeddings](#topic-11-hyde)
+6. [Phase 6 — Advanced Retrieval & Precision Ranking](#topic-6-hybrid-search)
+   - [6.1 Hybrid Search (Dense + Sparse)](#topic-6-hybrid-search)
+   - [6.2 Re-ranking (Cross-Encoder)](#topic-7-reranking)
+   - [6.3 MMR — Maximal Marginal Relevance](#topic-8-mmr)
+7. [Phase 7 — RAG Chains, Conversational Memory & format_docs Guide](#topic-7-rag-chains)
+   - [7.1 LCEL Custom RAG Pipelines & Conversational Chains](#chroma-rag-chains)
+   - [7.2 format_docs Deep-Dive: When to Use vs. When NOT to Use](#format-docs-deep-dive)
+8. [Phase 8 — Fine-Tuning vs RAG — Strategic Decision Framework](#topic-3-finetuning-vs-rag)
+9. [Phase 9 — Multimodal AI & Vision-Native RAG](#topic-12-multimodal-ai)
+   - [9.1 Multimodal AI (Classic OCR vs. Visual-Native ColPali)](#topic-12-multimodal-ai)
+   - [9.2 Multimodal RAG Architecture (CLIP Joint Embedding)](#topic-13-multimodal-rag-architecture)
+10. [Phase 10 — AI Agents vs. Agentic AI](#topic-14-agentic-ai)
+11. [Phase 11 — Agentic SDLC Case Study](#topic-15-agentic-sdlc)
 
 ---
 
-<details><summary><a id="topic-1-langchain-v11" name="topic-1-langchain-v11"></a>Phase 1: 08_langchain_updated_version1.1 — Needed for stateful agent workflows, streaming, tool binding & graph-based execution</summary>
-detailed ->   https://github.com/Shivanshvyas1729/Krish_naik_rag_notes/blob/main/langchain_updates.1.1.md
+<details><summary><a id="topic-1-langchain-v11" name="topic-1-langchain-v11"></a>Phase 1 — LangChain v1.1 & LangGraph Agent Architecture</summary>
+
 # LangChain v1.1 & LangGraph Agent Architecture
 
-This module contains modern, production-grade implementations and detailed theoretical notes on the **LangChain v1.1 / 1.x API** built on top of the **LangGraph** execution engine.
+This module covers the modern, production-grade LangChain v1.1/1.x API built on top of the LangGraph execution engine.
 
 ---
 
-## 📚 Notebook Overview & Core Architecture
+## Notebook Overview
 
-| Notebook | Topic & Core Focus | Key LangChain v1.1 APIs Used |
+| Notebook | Topic | Key APIs |
 | :--- | :--- | :--- |
-| **`1-langchainintro.ipynb`** | Agent Foundations & Graph Engine | `create_agent()`, `@tool`, `agent.invoke()` |
-| **`2-modelintegration.ipynb`** | Universal Model Integration, Streaming & Batching | `init_chat_model()`, `ChatOpenAI()`, `ChatGroq()`, `ChatGoogleGenerativeAI()`, `model.stream()`, `model.batch()` |
-| **`3-tools.ipynb`** | Tool Definition, Schemas & Execution Loops | `@tool`, `model.bind_tools()`, `ai_msg.tool_calls`, `ToolMessage` |
-| **`4-messages.ipynb`** | Canonical Message Schema & Token Tracking | `SystemMessage`, `HumanMessage`, `AIMessage`, `ToolMessage`, `usage_metadata` |
-| **`5-structuredoutput.ipynb`** | Enforced Schema Parsing & Validation | `with_structured_output()`, `response_format`, `Pydantic`, `TypedDict`, `@dataclass` |
-| **`6-middleware.ipynb`** | Agent Middleware, Memory & Human-in-the-Loop | `SummarizationMiddleware`, `HumanInTheLoopMiddleware`, `InMemorySaver`, `Command` |
-| **LCEL Core** | Declarative Composition & Runnable Protocol | `|` (pipe), `Runnable`, `invoke()`, `ainvoke()`, `batch()`, `stream()` |
+| `1-langchainintro.ipynb` | Agent Foundations & Graph Engine | `create_agent()`, `@tool`, `agent.invoke()` |
+| `2-modelintegration.ipynb` | Universal Model Integration, Streaming & Batching | `init_chat_model()`, `ChatOpenAI()`, `ChatGroq()`, `ChatGoogleGenerativeAI()`, `model.stream()`, `model.batch()` |
+| `3-tools.ipynb` | Tool Definition, Schemas & Execution Loops | `@tool`, `model.bind_tools()`, `ai_msg.tool_calls`, `ToolMessage` |
+| `4-messages.ipynb` | Canonical Message Schema & Token Tracking | `SystemMessage`, `HumanMessage`, `AIMessage`, `ToolMessage`, `usage_metadata` |
+| `5-structuredoutput.ipynb` | Enforced Schema Parsing & Validation | `with_structured_output()`, `response_format`, `Pydantic`, `TypedDict`, `@dataclass` |
+| `6-middleware.ipynb` | Agent Middleware, Memory & Human-in-the-Loop | `SummarizationMiddleware`, `HumanInTheLoopMiddleware`, `InMemorySaver`, `Command` |
+| LCEL Core | Declarative Composition & Runnable Protocol | `\|` (pipe), `Runnable`, `invoke()`, `ainvoke()`, `batch()`, `stream()` |
 
 ---
 
-## 📖 Comprehensive Module Theory & Deep Dives
+## 1. Agent Foundations (`1-langchainintro.ipynb`)
 
-### 1. `1-langchainintro.ipynb` – Agent Foundations & High-Level Architecture
+**Definition:** An AI Agent uses an LLM as a central reasoning engine to decide which tools to call, what arguments to extract, and how to sequence actions to satisfy a request.
 
-#### 🧠 Theory & Core Concepts
-An **AI Agent** uses a Large Language Model (LLM) as a central reasoning engine to dynamically decide which tools to call, what parameters to extract, and how to sequence actions to satisfy a user request.
+<details>
+<summary>Version Note — LangChain v0.3: AgentExecutor is deprecated</summary>
+<ul>
+<li><strong>Deprecated:</strong> <code>langchain.agents.AgentExecutor</code> — the old loop-based executor relying on manual Python state passing.</li>
+<li><strong>Current standard:</strong> <code>create_agent</code> from <code>langchain.agents</code> — wraps LangGraph under the hood with stateful graph execution, native cycle handling, and automatic tool error recovery.</li>
+<li>For custom multi-agent flows, use LangGraph directly: <code>langgraph.prebuilt.create_react_agent</code>.</li>
+<li>Reference: <a href="https://python.langchain.com/docs/versions/v0_3/">LangChain v0.3 docs</a></li>
+</ul>
+</details>
 
-- **Legacy vs. LangChain v1.1 Agent Architecture**:
-  - *Legacy (`AgentExecutor`)*: Relied on complex Python loops and manual memory state passing.
-  - *LangChain v1.1 (`create_agent`)*: Constructs a stateful, compiled graph engine powered by **LangGraph** under the hood. It natively handles cyclic agent loops, message state persistence, and tool execution error recovery.
+**Legacy vs. Current Architecture:**
+
+| | Legacy (`AgentExecutor`) | Current (`create_agent`) |
+| :--- | :--- | :--- |
+| Execution | Manual Python loops | LangGraph stateful graph engine |
+| Memory state | Manual state passing | Automatic persistence via `InMemorySaver` |
+| Error recovery | Manual try/except | Built-in tool execution error recovery |
 
 ```python
 from langchain.agents import create_agent
@@ -98,66 +112,77 @@ agent = create_agent(
     system_prompt="You are a helpful assistant."
 )
 
-# Invocation accepts messages in OpenAI or LangChain format
+# Accepts messages in OpenAI or LangChain format
 response = agent.invoke({"messages": [{"role": "user", "content": "What is the weather in New York?"}]})
 print(response["messages"])
 ```
 
 ---
 
-### 2. `2-modelintegration.ipynb` – Universal Model Provider Loading, Streaming & Batching
+## 2. Universal Model Integration (`2-modelintegration.ipynb`)
 
-#### 🧠 Theory & Core Concepts
-LangChain v1.1 decouples provider-specific code from application logic using a universal model initializer and standardized execution paradigms.
+<details>
+<summary>Version Note — LangChain v0.3: Direct provider imports are deprecated</summary>
+<ul>
+<li><strong>Deprecated:</strong> Importing <code>ChatOpenAI</code>, <code>ChatGroq</code>, etc. directly from <code>langchain.chat_models</code> as the primary initialization pattern.</li>
+<li><strong>Current standard:</strong> Use <code>init_chat_model()</code> with a provider prefix string — makes provider switching seamless without changing application logic.</li>
+<li>Old chains like <code>ConversationalRetrievalChain</code> are also deprecated — replaced by LCEL-based <code>create_stuff_documents_chain</code> + <code>create_retrieval_chain</code>.</li>
+</ul>
+</details>
 
-1. **Universal Model Initialization (`init_chat_model`)**:
-   Instead of importing provider classes directly (`ChatOpenAI`, `ChatGroq`, `ChatGoogleGenerativeAI`), `init_chat_model()` instantiates any LLM via string identifiers, making provider migration seamless.
+**Core idea:** LangChain v1.1 decouples provider code from application logic using a universal model initializer and standardized execution modes.
 
-   ```python
-   from langchain.chat_models import init_chat_model
+### 1. Universal Model Initialization (`init_chat_model`)
 
-   model_openai = init_chat_model("gpt-4o-mini")
-   model_groq = init_chat_model("groq:llama-3.3-70b-versatile")
-   model_gemini = init_chat_model("google_genai:gemini-1.5-flash")
-   ```
+Instead of importing provider classes directly, `init_chat_model()` instantiates any LLM via string identifiers. Provider migration becomes a one-line change.
 
-2. **Streaming Output (`model.stream()`)**:
-   - *Concept*: LLMs generate text token by token. Calling `model.stream()` uses HTTP chunked transfer encoding to yield `AIMessageChunk` objects in real time.
-   - *UX Benefit*: Eliminates user waiting time by displaying output progressively (reduces Time-To-First-Token).
+```python
+from langchain.chat_models import init_chat_model
 
-   ```python
-   for chunk in model.stream("Explain quantum computing in 2 sentences"):
-       print(chunk.content, end="", flush=True)
-   ```
+model_openai = init_chat_model("gpt-4o-mini")
+model_groq   = init_chat_model("groq:llama-3.3-70b-versatile")
+model_gemini = init_chat_model("google_genai:gemini-1.5-flash")
+```
 
-3. **Batch Processing (`model.batch()`)**:
-   - *Concept*: Dispatches multiple independent prompts in parallel using async thread pools.
-   - *Performance Benefit*: Drastically reduces total latency and increases request throughput compared to sequential `for` loops.(It can handle multiple requests more efficiently and process more of them in the same amount of time than a normal sequential for loop.)
+### 2. Streaming Output (`model.stream()`)
 
-   ```python
-   responses = model.batch(["What is 2+2?", "What is 10*5?", "What is 100/4?"])
-   ```
+LLMs generate text token by token. `model.stream()` uses HTTP chunked transfer to yield `AIMessageChunk` objects in real time, eliminating user wait time (reduces Time-To-First-Token).
+
+```python
+for chunk in model.stream("Explain quantum computing in 2 sentences"):
+    print(chunk.content, end="", flush=True)
+```
+
+### 3. Batch Processing (`model.batch()`)
+
+Dispatches multiple independent prompts in parallel using async thread pools. Drastically reduces total latency compared to sequential `for` loops (more requests processed in the same time).
+
+```python
+responses = model.batch(["What is 2+2?", "What is 10*5?", "What is 100/4?"])
+```
 
 ---
 
-### 3. `3-tools.ipynb` – Tool Anatomy, Schemas & Both Tool Binding Methods
+## 3. Tool Anatomy, Schemas & Binding (`3-tools.ipynb`)
 
-#### 🧠 Theory & Core Concepts
-A **Tool** is a pairing of:
-1. **JSON Schema**: Contains the function name, docstring description, and argument parameter types.
-2. **Execution Logic**: The underlying Python function or coroutine executed when invoked.
+**A Tool is a pairing of:**
+1. **JSON Schema** — function name, docstring description, and argument types.
+2. **Execution Logic** — the underlying Python function or coroutine.
 
-The `@tool` decorator automatically inspects Python type hints (`city: str`) and Google/Sphinx docstrings to auto-generate the JSON schema expected by LLM tool-calling APIs.
+The `@tool` decorator auto-inspects Python type hints (`city: str`) and docstrings to generate the JSON schema expected by LLM tool-calling APIs.
 
-#### 🛠️ Both Methods to Add & Bind Tools in LangChain
+### Both Methods to Bind Tools
 
 | Feature | Method 1: `model.bind_tools()` | Method 2: `create_agent(tools=[...])` |
 | :--- | :--- | :--- |
-| **Execution Loop** | Manual (Developer invokes tool function) | Automatic (LangGraph engine invokes tool function) |
+| **Execution Loop** | Manual — developer invokes tool function | Automatic — LangGraph engine handles the loop |
 | **Message State** | Manual `ToolMessage` creation & append | Automatic `ToolMessage` state tracking |
-| **Control Level** | Fine-grained (Custom UI callbacks, single-step) | High-level (Multi-step autonomous agent execution) |
+| **Control Level** | Fine-grained (custom UI callbacks, single-step) | High-level (multi-step autonomous execution) |
 
-##### Method 1: Direct Model Binding (`model.bind_tools()`)
+**Method 1 — Direct Model Binding (`model.bind_tools()`)**
+
+Use when you need full control over each step (e.g., custom logging, single-turn UIs).
+
 ```python
 from langchain.chat_models import init_chat_model
 from langchain_core.tools import tool
@@ -170,24 +195,26 @@ def get_weather(city: str) -> str:
 model = init_chat_model("gpt-4o-mini")
 model_with_tools = model.bind_tools([get_weather])
 
-# Step 1: Model generates tool calls
+# Step 1: Model decides which tool to call
 messages = [{"role": "user", "content": "What's the weather in Boston?"}]
 ai_msg = model_with_tools.invoke(messages)
 messages.append(ai_msg)
 
-# Step 2: Execute tools and collect results
+# Step 2: Execute tools manually and collect results
 for tool_call in ai_msg.tool_calls:
-    # Execute the tool with the generated arguments
     tool_result = get_weather.invoke(tool_call)
     messages.append(tool_result)
 
-# Step 3: Pass results back to model for final response
+# Step 3: Pass tool results back for the final response
 final_response = model_with_tools.invoke(messages)
 print(final_response.content)
 # "The weather in Boston is sunny."
 ```
 
-##### Method 2: Automatic Agent Execution Loop (`create_agent(tools=[...])`)
+**Method 2 — Automatic Agent Loop (`create_agent(tools=[...])`)**
+
+Use when you want the agent to handle the full LLM → Tool Call → Execution → Final Answer loop automatically.
+
 ```python
 from langchain.agents import create_agent
 from langchain_core.tools import tool
@@ -197,7 +224,7 @@ def get_weather(city: str) -> str:
     # Get the weather for a city
     return f"The weather in {city} is sunny."
 
-# Agent automatically executes the loop: LLM -> Tool Call -> Function Exec -> ToolMessage -> Final Answer
+# Agent automatically runs: LLM -> Tool Call -> Function Exec -> ToolMessage -> Final Answer
 agent = create_agent(
     model="gpt-4o-mini",
     tools=[get_weather],
@@ -208,30 +235,28 @@ result = agent.invoke({"messages": [{"role": "user", "content": "What's the weat
 
 ---
 
-### 4. `4-messages.ipynb` – Canonical Message State & Token Usage Metadata
+## 4. Canonical Message State & Token Metadata (`4-messages.ipynb`)
 
-"Canonical Message State" refers to a unified, standardized format used in software integration to ensure different systems can communicate seamlessly
+**Canonical Message State** is a unified, standardized format ensuring all parts of the system communicate using the same structure. Benefits:
+- Reduces complexity
+- Looser coupling between components
+- Easier maintenance and debugging
 
-- Reduces Complexity
-- Looser Coupling
-- Easier Maintenance
+**Messages** are the fundamental unit of context. They carry content, roles, and provider metadata across multi-turn conversations and agent loops.
 
-
-#### 🧠 Theory & Core Concepts
-Messages are the fundamental unit of context in LangChain. They represent multi-turn conversation state and carry content, roles, and provider metadata across APIs.
-
-- **Text Prompts vs. Message Prompts**:
-  - *Text Prompts*: Standalone strings for simple, single-turn tasks.
-  - *Message Prompts*: Structured list of `BaseMessage` objects required for multi-turn chat memory and agent tool-calling loops.
-
-#### 💬 The 4 Canonical Message Types
-
-| Message Class | Role | Purpose & Contents |
+| | Text Prompts | Message Prompts |
 | :--- | :--- | :--- |
-| **`SystemMessage`** | `system` | Instructions setting persona, tone, rules, and guardrails. |
-| **`HumanMessage`** | `user` | User inputs (supports multimodal text, images, audio, files). |
-| **`AIMessage`** | `assistant` | Model output (text, reasoning tokens, and `tool_calls` payload). |
-| **`ToolMessage`** | `tool` | Output returned by a tool execution, mapped via `tool_call_id`. |
+| **Format** | Plain string | Structured list of `BaseMessage` objects |
+| **Use case** | Simple single-turn tasks | Multi-turn chat, agent tool-calling loops |
+
+### The 4 Canonical Message Types
+
+| Class | Role | Purpose |
+| :--- | :--- | :--- |
+| `SystemMessage` | `system` | Sets persona, tone, rules, and guardrails |
+| `HumanMessage` | `user` | User inputs — supports multimodal content (text, images, audio, files) |
+| `AIMessage` | `assistant` | Model output — includes text, reasoning tokens, and `tool_calls` payload |
+| `ToolMessage` | `tool` | Output from a tool execution, matched to the call via `tool_call_id` |
 
 ```python
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, ToolMessage
@@ -249,22 +274,29 @@ print(response.usage_metadata)  # Contains token usage details
 
 ---
 
-### 5. `5-structuredoutput.ipynb` – Enforced Schema Parsing & Validation
+## 5. Enforced Schema Parsing & Structured Output (`5-structuredoutput.ipynb`)
 
-#### 🧠 Theory & Core Concepts
-**Structured Output** guarantees that an LLM responds matching a strict schema (JSON/Pydantic), eliminating parsing failures in downstream production code.
+<details>
+<summary>Version Note — LangChain v0.3: Pydantic v1 is no longer supported</summary>
+<ul>
+<li><strong>Deprecated:</strong> Pydantic v1 (<code>BaseModel</code> from pydantic &lt;2.0). LangChain v0.3 requires Pydantic v2.</li>
+<li><strong>Current standard:</strong> <code>model.with_structured_output()</code> using Pydantic v2 <code>BaseModel</code> or <code>TypedDict</code>. This is now the definitive approach for reliable data extraction, replacing older brittle output parsers.</li>
+</ul>
+</details>
 
-#### 📐 Supported Schema Enforcers
+**Structured Output** guarantees the LLM responds with data that matches a strict schema (JSON/Pydantic), eliminating downstream parsing failures.
 
-1. **Pydantic (`BaseModel`)**: Full runtime field validation, default values, and rich field descriptions (`Field(description=...)`).
-2. **TypedDict (`TypedDict`)**: Lightweight Python built-in typing using `Annotated[T, Field(description=...)]`.
-3. **Dataclass (`@dataclass`)**: Standard Python data container.
+### Supported Schema Types
+
+1. **Pydantic (`BaseModel`)** — Full runtime field validation, defaults, and rich `Field(description=...)` docs.
+2. **TypedDict** — Lightweight, built-in Python typing using `Annotated[T, Field(description=...)]`.
+3. **Dataclass (`@dataclass`)** — Standard Python data container.
 
 ```python
 from pydantic import BaseModel, Field
 from typing_extensions import TypedDict, Annotated
 
-# Option A: Pydantic Schema
+# Option A: Pydantic Schema (recommended — full validation)
 class Movie(BaseModel):
     title: str = Field(description="Title of the movie")
     year: int = Field(description="Release year")
@@ -273,7 +305,7 @@ structured_model = model.with_structured_output(Movie)
 movie_obj = structured_model.invoke("Provide details about Inception")
 # Returns: Movie(title='Inception', year=2010)
 
-# Option B: TypedDict Schema
+# Option B: TypedDict Schema (lightweight)
 class MovieDict(TypedDict):
     title: Annotated[str, Field(description="Title of the movie")]
     year: Annotated[int, Field(description="Release year")]
@@ -281,43 +313,40 @@ class MovieDict(TypedDict):
 structured_dict_model = model.with_structured_output(MovieDict)
 ```
 
-- **`include_raw=True`**: Returns a dictionary with `{"raw": AIMessage, "parsed": SchemaObject, "parsing_error": None}` for debugging and tracing raw model tokens.
+**`include_raw=True`** — Returns `{"raw": AIMessage, "parsed": SchemaObject, "parsing_error": None}` for debugging raw model tokens.
 
 ---
 
-### 6. `6-middleware.ipynb` – Stateful Middleware, Memory Compression & Human-in-the-Loop
+## 6. Stateful Middleware, Memory & Human-in-the-Loop (`6-middleware.ipynb`)
 
-#### 🧠 Theory & Core Concepts
-**Middleware** intercept and modify internal agent execution steps.
-- Logging, analytics, and token cost control.
-- Guardrails , PII masking (Personally Identifiable Information), and output safety filtering.
-- Automated memory compression and human approval checkpoints.
-(Guardrails are safety boundaries or protective barriers that prevent systems, vehicles, or artificial intelligence models from veering off course into dangerous or unintended territory)
+**Middleware** intercepts and modifies internal agent execution steps. Think of it as a security guard, accountant, and editor standing beside the agent — the agent does the thinking, but middleware intercepts everything before it happens.
 
+**Three roles of middleware:**
 
-- Think of agent middleware as a security guard, accountant, and editor standing right beside an AI agent.
-The AI agent does the thinking, but the middleware intercepts everything the agent says or does before it actually happens.
-Here is what it does in simple terms:
-## 1. The Accountant (Logging & Cost Control)
+**Role 1 — The Accountant (Logging & Cost Control)**
+- Tracks what the agent did and how long it took.
+- Counts tokens. If the agent spends too much or gets stuck in a loop, middleware cuts it off.
 
-* Tracks everything: It writes down exactly what the agent did and how long it took.
-* Counts the cost: It counts the words (tokens) the agent uses. If the agent starts spending too much money or gets stuck in a loop, the middleware cuts it off.
+**Role 2 — The Filter (Guardrails & Security)**
+- Hides private data: if the agent tries to send a phone number or credit card to the cloud, middleware replaces it with `[HIDDEN]` first.
+- Blocks bad replies: if the agent says something unsafe or broken, middleware prevents it from reaching the user.
 
-## 2. The Filter (Guardrails & Security)
+> **Guardrails** = safety boundaries that prevent AI systems from going into dangerous or unintended territory.
 
-* Hides private data: If the agent tries to send your phone number or credit card to the cloud, the middleware replaces it with [HIDDEN] first.
-* Blocks bad replies: It checks the agent's answers. If the agent says something unsafe, mean, or broken, the middleware blocks it from reaching the user.
+**Role 3 — The Assistant (Memory & Approvals)**
+- Shrinks long chats: if a conversation gets too long, middleware summarizes old parts so the agent stays fast.
+- Asks for permission: before the agent does something serious (send an email, charge money), middleware pauses and asks a human to Approve or Deny.
 
-## 3. The Assistant (Memory & Approvals)
+What middleware can do:
+- Logging, analytics, and token cost control
+- Guardrails, PII masking, and output safety filtering
+- Automated memory compression and human approval checkpoints
 
-* Shrinks long chats: If a conversation gets too long, the middleware summarizes the old parts so the agent doesn't get confused or slow down.
-* Asks for permission: Before the agent does something serious—like sending an email or spending real money—the middleware hits "pause" and asks a human to click Approve or Deny.
+### Middleware Type 1 — Summarization (`SummarizationMiddleware`)
 
+**Problem:** Long multi-turn conversations exceed context window limits and waste tokens.
 
-
-#### 1. Summarization Middleware (`SummarizationMiddleware`)
-- *Problem*: Long-running multi-turn agent conversations exceed context window limits and consume excessive tokens.
-- *Solution*: Automatically compresses older conversation turns into a summarized context block once a message count or token limit is reached, while keeping recent messages intact.
+**Solution:** Automatically compresses older turns into a summary once a message count/token limit is hit, keeping the most recent messages intact.
 
 ```python
 from langchain.agents import create_agent
@@ -331,15 +360,17 @@ agent = create_agent(
         SummarizationMiddleware(
             model="gpt-4o-mini",
             trigger=("messages", 10), # Summarize after 10 messages
-            keep=("messages", 4)       # Keep latest 4 messages
+            keep=("messages", 4)       # Keep latest 4 messages intact
         )
     ]
 )
 ```
 
-#### 2. Human-In-The-Loop Middleware (`HumanInTheLoopMiddleware`)
-- *Problem*: High-stakes tool executions (e.g. database deletes, financial transactions, sending emails) require human oversight before execution.
-- *Solution*: Pauses agent execution before executing specified tools. The agent state is persisted using a checkpointer (`InMemorySaver`), and waits for a human approval/rejection/edit signal (`Command`).
+### Middleware Type 2 — Human-In-The-Loop (`HumanInTheLoopMiddleware`)
+
+**Problem:** High-stakes tool executions (DB deletes, financial transactions, email sends) need human oversight before execution.
+
+**Solution:** Pauses agent execution before specified tools run. State is persisted via `InMemorySaver` while waiting for a human approval/rejection/edit signal.
 
 ```python
 from langchain.agents import create_agent
@@ -360,89 +391,87 @@ agent = create_agent(
 
 ---
 
-### 7. LangChain Expression Language (LCEL) & The Runnable Protocol
+## 7. LangChain Expression Language (LCEL) & The Runnable Protocol
 
-**LCEL (LangChain Expression Language)** is a declarative way to compose and chain artificial intelligence building blocks—such as prompts, models, and parsers—using the pipe operator (`|`). [[1](https://www.geeksforgeeks.org/artificial-intelligence/langchain/), [2](https://www.langchain.com/blog/langchain-expression-language)]
+**LCEL** is a declarative way to compose AI building blocks — prompts, models, parsers — using the pipe operator (`|`). [[LangChain Blog](https://www.langchain.com/blog/langchain-expression-language)]
 
-#### 🧠 What is LCEL?
-* **Declarative Composition:** You define what components to connect, and data flows automatically from left to right.
-* **The Runnable Protocol:** Every core element in LCEL implements a standard interface (Runnables) that handles execution seamlessly.
-* **Basic Syntax:** A standard workflow looks like `chain = prompt | llm | output_parser`. [[1](https://cobusgreyling.medium.com/what-is-langchain-expression-language-lcel-8a828c38b37d), [2](https://langchain-opentutorial.gitbook.io/langchain-opentutorial/01-basic/07-lcel-interface), [3](https://www.aurelio.ai/learn/langchain-lcel), [4](https://www.geeksforgeeks.org/artificial-intelligence/langchain/)]
+**Key concepts:**
+- **Declarative Composition:** Define what to connect; data flows left to right automatically.
+- **Runnable Protocol:** Every LCEL component implements a standard interface with `invoke()`, `ainvoke()`, `batch()`, `stream()`.
+- **Basic syntax:** `chain = prompt | llm | output_parser`
 
-#### 🚀 Key Features & Benefits
-* **Out-of-the-Box Execution Modes:** Supports synchronous (`invoke`), asynchronous (`ainvoke`), batch (`batch`), and streaming (`stream`) execution without changing your code. [[1](https://www.youtube.com/watch?v=8aUYzb1aYDU&t=1), [2](https://k21academy.com/ai-ml/langchain-expression-language/), [3](https://langchain-opentutorial.gitbook.io/langchain-opentutorial/01-basic/07-lcel-interface)]
-* **Automatic Parallelism:** Steps that can run concurrently do so automatically to boost runtime efficiency. [[1](https://k21academy.com/ai-ml/langchain-expression-language/)]
-* **Production Ready:** Designed to transition smoothly from local prototypes to production environments with built-in logging and tracing via platforms like LangSmith. [[1](https://www.artefact.com/blog/unleashing-the-power-of-langchain-expression-language-lcel-from-proof-of-concept-to-production/), [2](https://www.langchain.com/blog/langchain-expression-language), [3](https://k21academy.com/ai-ml/langchain-expression-language/)]
+**Key benefits:**
+- **Multiple execution modes** out of the box — sync, async, batch, streaming — without changing code. [[k21academy](https://k21academy.com/ai-ml/langchain-expression-language/)]
+- **Automatic parallelism** — steps that can run concurrently do so automatically.
+- **Production ready** — built-in logging and tracing via LangSmith. [[artefact.com](https://www.artefact.com/blog/unleashing-the-power-of-langchain-expression-language-lcel-from-proof-of-concept-to-production/)]
 
-> 💡 **LCEL vs. Pre-built Chains Note**: When constructing custom LCEL RAG pipelines (`retriever | format_docs | prompt`), converting `List[Document]` to a string via `format_docs` is mandatory. Conversely, pre-built helpers (`create_stuff_documents_chain`) handle document formatting internally. See the full [format_docs Decision Guide & Comparison Matrix](#format-docs-deep-dive).
+> **LCEL vs. Pre-built Chains:** When building custom LCEL RAG pipelines (`retriever | format_docs | prompt`), converting `List[Document]` to a string via `format_docs` is **mandatory**. Pre-built helpers (`create_stuff_documents_chain`) handle document formatting internally. See the full [format_docs Decision Guide](#format-docs-deep-dive).
 
 </details>
 
+---
 
-<details><summary><a id="topic-2-rag" name="topic-2-rag"></a>Phase 2: RAG (Retrieval-Augmented Generation) — Needed to ground LLM responses with private/up-to-date knowledge and prevent hallucinations</summary>
+<details><summary><a id="topic-2-rag" name="topic-2-rag"></a>Phase 2 — RAG: Retrieval-Augmented Generation Fundamentals & 10 Chunking Strategies</summary>
 
-
-# Study Notes: Retrieval-Augmented Generation (RAG)
+# Retrieval-Augmented Generation (RAG)
 
 ## Core Concept
 
-**RAG (Retrieval-Augmented Generation)** is a technique that enhances AI language models by combining their text-generation capabilities with external knowledge retrieval.
+**RAG** enhances AI language models by combining text-generation with external knowledge retrieval.
 
-* **The Analogy:**
-* **Traditional LLM (Without RAG):** Like a student taking a *closed-book exam*. It can only answer based on the information it memorized during its initial training. If it doesn't know, it might guess (hallucinate) or say "I don't know."
-* **RAG-Enabled AI:** Like a student taking an *open-book exam*. It can look up specific, current, or specialized information from a "library" (external databases) before generating its answer.
-
-
+**The Analogy:**
+- **Traditional LLM (no RAG):** Closed-book exam — answers only from training memory. May hallucinate or say "I don't know."
+- **RAG-enabled AI:** Open-book exam — looks up current, specialized information from a "library" (external databases) before answering.
 
 ---
 
-## The 3 Core Components of RAG
+## The 3 Core Components
 
-1. **[R]etrieval:** Finding relevant information. The system searches external sources (like a Vector Database) using similarity search to find data related to the user's query.
-2. **[A]ugmentation:** Enhancing the context. The retrieved data is combined with metadata (e.g., source tags like *"Source: Tesla Annual Report 2023"*) and added to the user's original prompt.
-3. **[G]eneration:** Producing the answer. The Large Language Model (LLM) reads the enriched context and generates a highly accurate, grounded response.
+1. **[R]etrieval** — Find relevant information. Search external sources (e.g., a Vector DB) using similarity search.
+2. **[A]ugmentation** — Enhance the context. Combine retrieved data with metadata (e.g., *"Source: Tesla Annual Report 2023"*) and add to the original prompt.
+3. **[G]eneration** — Produce the answer. The LLM reads the enriched context and generates a grounded, accurate response.
 
 ---
 
-## RAG Architecture Workflow
-
-The process is broken down into three distinct phases:
+## RAG Workflow
 
 ### Phase 1: Document Ingestion
 
-* **Data Sources:** Raw data (PDFs, Web Pages, Databases) is collected.
-* **Processing:** The data goes through a Document Splitter to break it into chunks.
-* **Embedding:** An Embedding Model converts text into mathematical vectors (e.g., `[0.31, -0.22, 0.85...]`).
-* **Storage:** These vectors are stored in a **Vector Database**.
-
-#### 🧩 10 Core Chunking Strategies in RAG
-
-> 💡 **For RAG, the most commonly useful starting points are:**
-> **Recursive + overlap**, **semantic**, and **document-structure-based chunking**.
-
-##### Summary Matrix:
-| # | Strategy | Core Mechanism | Best For | Trade-offs & Limitations |
-| :--- | :--- | :--- | :--- | :--- |
-| 1 | **Fixed-size chunking** | Split strictly every $N$ characters/tokens | Rapid baseline tests | Slices words & sentences mid-thought |
-| 2 | **Sentence-based chunking** | Split at sentence punctuation (`.`, `!`, `?`) | Factoid Q&A, statement search | Uneven chunk lengths; loses paragraph context |
-| 3 | **Paragraph-based chunking** | Split at double newlines (`\n\n`) | Articles, blogs, narratives | Paragraphs vary wildly in length |
-| 4 | **Recursive chunking** | Hierarchical separators (`\n\n` → `\n` → `" "` → `""`) | General prose (Default choice) | Complex technical documents can still fragment |
-| 5 | **Semantic chunking** | Split on sentence embedding distance spikes | Dense technical / academic text | High computation cost ($N$ embedding calls) |
-| 6 | **Document-structure chunking** | Split on headers (`#`, `##`), HTML tags, tables | Markdown docs, manuals, code | Irregular chunk sizes; requires structural markup |
-| 7 | **Sliding-window chunking** | Fixed window size + fixed stride overlap | High-continuity document streams | Substantial data redundancy in vector index |
-| 8 | **Token-based chunking** | Split strictly by tokenizer token limit | LLM context window budgeting | Disregards grammatical sentence boundaries |
-| 9 | **Agentic/LLM-based chunking** | Prompt LLM to extract cohesive sections | Unstructured messy data | High API latency and financial cost |
-| 10 | **Hybrid chunking** | Structure + Recursive/Semantic + Token limits | Enterprise-grade production RAG | Multi-step pipeline implementation overhead |
+1. **Data Sources** — Raw data (PDFs, Web Pages, Databases) is collected.
+2. **Processing** — A Document Splitter breaks data into chunks.
+3. **Embedding** — An Embedding Model converts text into vectors (e.g., `[0.31, -0.22, 0.85...]`).
+4. **Storage** — Vectors are stored in a Vector Database.
 
 ---
 
-##### 1. Fixed-size chunking
-Splits text every $N$ characters (or words) with an optional overlap, without taking grammatical or linguistic structure into account.
-* **Best used for:** Quick baseline tests or uniform flat data where semantic boundaries are unimportant.
-* **Risk:** Cuts words and sentences in half, causing context fragmentation and hallucinations.
+### 10 Core Chunking Strategies
+
+> **Recommended starting points for RAG:** Recursive + overlap, Semantic, and Document-structure-based chunking.
+
+| # | Strategy | Mechanism | Best For | Trade-offs |
+| :--- | :--- | :--- | :--- | :--- |
+| 1 | Fixed-size | Split every N characters/tokens | Quick baseline tests | Slices mid-word/sentence |
+| 2 | Sentence-based | Split at punctuation (`.`, `!`, `?`) | Factoid Q&A, quote retrieval | Uneven lengths; loses paragraph context |
+| 3 | Paragraph-based | Split at double newlines (`\n\n`) | Articles, blogs, narratives | Paragraphs vary wildly in length |
+| 4 | Recursive | Hierarchical separators (`\n\n` → `\n` → `" "` → `""`) | General prose — **default choice** | Dense technical docs may still fragment |
+| 5 | Semantic | Split on sentence embedding distance spikes | Dense/academic multi-topic text | High compute cost (N embedding calls) |
+| 6 | Document-structure | Split on headers (`#`, `##`), HTML tags, tables | Markdown docs, API specs, code | Irregular sizes; needs structural markup |
+| 7 | Sliding-window | Fixed window size + fixed stride overlap | Continuous streams, transcripts | Substantial data redundancy |
+| 8 | Token-based | Split by tokenizer token count (tiktoken) | LLM context window budgeting | May split mid-word without recursive fallback |
+| 9 | Agentic/LLM-based | Prompt LLM to extract cohesive sections | Unstructured messy data | High API cost and latency |
+| 10 | Hybrid | Structure + Recursive/Semantic + Token limits | Enterprise production RAG | Multi-step pipeline complexity |
+
+---
+
+#### 1. Fixed-size Chunking
+
+Splits every N characters (or words) with optional overlap, ignoring grammatical structure.
+
+- **Best for:** Quick baseline tests or uniform flat data.
+- **Risk:** Cuts words and sentences in half — causes context fragmentation and hallucinations.
 
 <details>
-<summary><b>Code & Example: Fixed-size Chunking</b></summary>
+<summary>Code & Example</summary>
 
 ```python
 from langchain_text_splitters import CharacterTextSplitter
@@ -464,7 +493,7 @@ for i, chunk in enumerate(chunks, 1):
     print(f"Chunk {i} [{len(chunk)} chars]: '{chunk}'")
 ```
 
-**Output Example:**
+**Output:**
 ```text
 Chunk 1 [60 chars]: 'LangChain is an orchestration framework for LLMs. It connect'
 Chunk 2 [60 chars]: 'connects models to external data sources and enables retriev'
@@ -475,13 +504,15 @@ Chunk 4 [48 chars]: 'common vector stores used for fast similarity search.'
 
 ---
 
-##### 2. Sentence-based chunking
-Splits text directly along sentence boundaries (using punctuation marks like `.`, `!`, `?` or NLP tokenizers from NLTK/spaCy).
-* **Best used for:** Precise fact-checking, statement verification, and sentence-level quote retrieval.
-* **Risk:** Individual sentences frequently lack sufficient context (e.g., resolving pronouns like "it", "they", or "this").
+#### 2. Sentence-based Chunking
+
+Splits at sentence boundaries (punctuation `.`, `!`, `?` or NLP tokenizers from NLTK/spaCy).
+
+- **Best for:** Precise fact-checking, statement verification, sentence-level quote retrieval.
+- **Risk:** Individual sentences often lack context (pronouns like "it", "they" become unresolvable).
 
 <details>
-<summary><b>Code & Example: Sentence-based Chunking</b></summary>
+<summary>Code & Example</summary>
 
 ```python
 import re
@@ -499,7 +530,7 @@ for i, sent in enumerate(sentences, 1):
     print(f"Chunk {i} (Sentence): {sent}")
 ```
 
-**Output Example:**
+**Output:**
 ```text
 Chunk 1 (Sentence): Retrieval-Augmented Generation enhances LLM capability!
 Chunk 2 (Sentence): It fetches relevant knowledge from external vector databases.
@@ -510,13 +541,15 @@ Chunk 4 (Sentence): Yes, by grounding answers in retrieved source text.
 
 ---
 
-##### 3. Paragraph-based chunking
-Uses natural paragraph delimiters (usually double newlines `\n\n`) to segment text, maintaining the author's original unit of thought.
-* **Best used for:** Well-formatted editorial content, blog posts, essays, and reports where paragraphs represent cohesive ideas.
-* **Risk:** Paragraph lengths vary wildly; one paragraph may be 20 tokens while another is 2,000 tokens, exceeding LLM context limits.
+#### 3. Paragraph-based Chunking
+
+Uses double newlines (`\n\n`) to segment text, preserving the author's original thought units.
+
+- **Best for:** Well-formatted editorial content, blog posts, essays, reports.
+- **Risk:** Paragraph lengths vary wildly — one may be 20 tokens, another 2,000+ (exceeds LLM context limits).
 
 <details>
-<summary><b>Code & Example: Paragraph-based Chunking</b></summary>
+<summary>Code & Example</summary>
 
 ```python
 from langchain_text_splitters import CharacterTextSplitter
@@ -538,7 +571,7 @@ for i, chunk in enumerate(chunks, 1):
     print(f"--- Chunk {i} (Paragraph) ---\n{chunk}\n")
 ```
 
-**Output Example:**
+**Output:**
 ```text
 --- Chunk 1 (Paragraph) ---
 Artificial Intelligence has revolutionized natural language processing. Modern transformer architectures allow models to understand contextual relationships across vast amounts of text.
@@ -553,13 +586,15 @@ Vector databases act as the memory layer in RAG systems, enabling sub-second sem
 
 ---
 
-##### 4. Recursive chunking
-Tries a prioritized hierarchy of separators sequentially (`\n\n` → `\n` → `" "` → `""`). It only moves to finer separators if a chunk exceeds the target size, keeping larger structural units (paragraphs, then sentences) intact whenever possible.
-* **Best used for:** General prose, documentation, articles, and default RAG pipelines (recommended baseline).
-* **Risk:** Dense technical sections without standard paragraph breaks can still end up fragmented.
+#### 4. Recursive Chunking
+
+Tries a hierarchy of separators (`\n\n` → `\n` → `" "` → `""`), using finer separators only if a chunk still exceeds target size. Keeps paragraphs and sentences intact whenever possible.
+
+- **Best for:** General prose, documentation, articles — the **recommended default** for RAG.
+- **Risk:** Dense technical sections without standard paragraph breaks can still fragment.
 
 <details>
-<summary><b>Code & Example: Recursive Chunking</b></summary>
+<summary>Code & Example</summary>
 
 ```python
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -582,7 +617,7 @@ for i, chunk in enumerate(chunks, 1):
     print(f"Chunk {i} ({len(chunk)} chars):\n\"{chunk}\"\n")
 ```
 
-**Output Example:**
+**Output:**
 ```text
 Chunk 1 (74 chars):
 "LangChain provides modular abstractions. It simplifies building LLM apps."
@@ -600,13 +635,15 @@ Combining both creates hybrid search."
 
 ---
 
-##### 5. Semantic chunking
-Computes embeddings for consecutive sentences and measures their cosine distance. When the semantic distance between adjacent sentences spikes past a calculated statistical threshold (percentile or standard deviation), it places a chunk boundary.
-* **Best used for:** Dense multi-topic documents, research papers, and technical transcripts where topics shift unpredictably.
-* **Risk:** Computationally expensive at ingestion time ($N$ sentence embedding inference calls).
+#### 5. Semantic Chunking
+
+Computes embeddings for consecutive sentences and measures cosine distance. Places a chunk boundary when the semantic distance between adjacent sentences spikes past a statistical threshold (percentile or standard deviation).
+
+- **Best for:** Dense multi-topic documents, research papers, technical transcripts where topics shift unpredictably.
+- **Risk:** Computationally expensive at ingestion time (N embedding inference calls).
 
 <details>
-<summary><b>Code & Example: Semantic Chunking</b></summary>
+<summary>Code & Example</summary>
 
 ```python
 from langchain_experimental.text_splitter import SemanticChunker
@@ -630,7 +667,7 @@ for i, doc in enumerate(docs, 1):
     print(f"=== Semantic Chunk {i} ===\n{doc.page_content}\n")
 ```
 
-**Output Example:**
+**Output:**
 ```text
 === Semantic Chunk 1 ===
 LangChain is a framework for building applications with LLMs. It provides modular abstractions to combine LLMs with vector databases like Chroma and Pinecone. You can create chains, agents, memory, and retrievers.
@@ -642,13 +679,15 @@ The Eiffel Tower is located on the Champ de Mars in Paris, France. France is one
 
 ---
 
-##### 6. Document-structure chunking
-Leverages the inherent layout and syntax of documents — such as Markdown headers (`#`, `##`, `###`), HTML tags (`<section>`, `<table>`), code ASTs (classes, functions), or JSON keys. It attaches structural breadcrumbs directly into chunk metadata.
-* **Best used for:** Technical documentation, API specs, developer docs, GitHub repositories, and structured reports.
-* **Risk:** Chunk size is determined entirely by author formatting; long sections without subheaders may still need secondary splitting.
+#### 6. Document-structure Chunking
+
+Uses document layout — Markdown headers (`#`, `##`, `###`), HTML tags (`<section>`, `<table>`), code ASTs, or JSON keys. Attaches structural breadcrumbs into chunk metadata.
+
+- **Best for:** Technical documentation, API specs, developer docs, GitHub repos, structured reports.
+- **Risk:** Chunk size is determined by author formatting — long sections without subheaders still need secondary splitting.
 
 <details>
-<summary><b>Code & Example: Document-structure Chunking</b></summary>
+<summary>Code & Example</summary>
 
 ```python
 from langchain_text_splitters import MarkdownHeaderTextSplitter
@@ -682,7 +721,7 @@ for i, doc in enumerate(splits, 1):
     print(f"Content:\n{doc.page_content}\n")
 ```
 
-**Output Example:**
+**Output:**
 ```text
 Chunk 1 | Metadata: {'Header 1': 'Machine Learning'}
 Content:
@@ -708,13 +747,15 @@ Discovers inherent groupings or patterns in unlabeled data.
 
 ---
 
-##### 7. Sliding-window chunking
-Generates overlapping chunks by sliding a fixed-size window forward by a smaller step (stride). A window of size $W$ with stride $S$ produces an overlap of $W - S$ tokens across consecutive chunks, ensuring transitions between boundaries are never lost.
-* **Best used for:** Continuous text streams, conversation transcripts, medical records, or legal contracts where context shearing is unacceptable.
-* **Risk:** High storage and vector compute overhead due to repetitive text redundancy.
+#### 7. Sliding-window Chunking
+
+Slides a fixed-size window forward by a smaller step (stride). A window of size W with stride S produces an overlap of W-S tokens across consecutive chunks — no boundary transitions are lost.
+
+- **Best for:** Continuous text streams, conversation transcripts, medical records, legal contracts.
+- **Risk:** High storage and vector compute overhead due to repeated text.
 
 <details>
-<summary><b>Code & Example: Sliding-window Chunking</b></summary>
+<summary>Code & Example</summary>
 
 ```python
 def sliding_window_chunking(text: str, window_size: int = 50, stride: int = 30):
@@ -738,7 +779,7 @@ for i, chunk in enumerate(chunks, 1):
     print(f"Window {i}: {chunk}")
 ```
 
-**Output Example:**
+**Output:**
 ```text
 Window 1: Alpha Beta Gamma Delta Epsilon Zeta Eta Theta Iota Kappa
 Window 2: Eta Theta Iota Kappa Lambda Mu Nu Xi Omicron Pi
@@ -749,13 +790,15 @@ Window 4: Tau Upsilon Phi Chi Psi Omega
 
 ---
 
-##### 8. Token-based chunking
-Splits text according to explicit token counts using the target LLM's exact BPE tokenizer (e.g., `tiktoken` for OpenAI `cl100k_base` / `o200k_base`).
-* **Best used for:** Strict LLM context window budgeting, preventing API token limit errors, and accurate cost tracking.
-* **Risk:** May split in the middle of words or sentences if not combined with recursive fallback characters.
+#### 8. Token-based Chunking
+
+Splits by token counts using the target LLM's exact BPE tokenizer (e.g., `tiktoken` for OpenAI `cl100k_base` / `o200k_base`).
+
+- **Best for:** Strict LLM context window budgeting, preventing API token limit errors, accurate cost tracking.
+- **Risk:** May split mid-word or mid-sentence without recursive fallback.
 
 <details>
-<summary><b>Code & Example: Token-based Chunking</b></summary>
+<summary>Code & Example</summary>
 
 ```python
 from langchain_text_splitters import TokenTextSplitter
@@ -777,7 +820,7 @@ for i, chunk in enumerate(chunks, 1):
     print(f"Token Chunk {i}:\n'{chunk}'\n")
 ```
 
-**Output Example:**
+**Output:**
 ```text
 Token Chunk 1:
 'TokenTextSplitter splits documents strictly based on the token count'
@@ -795,13 +838,15 @@ Token Chunk 4:
 
 ---
 
-##### 9. Agentic / LLM-based chunking
-Employs an LLM as an intelligent chunking agent. The model reads the document, reasons about semantic boundaries, and outputs clean, self-contained sections accompanied by synthesized context, summaries, or standalone chunk titles.
-* **Best used for:** Complex, messy, or highly technical documents where rule-based splitters fail (e.g., mixed tables, contracts, research summaries).
-* **Risk:** Substantial inference cost and higher processing latency per document during data ingestion.
+#### 9. Agentic / LLM-based Chunking
+
+Uses an LLM as an intelligent chunking agent. The model reads the document, reasons about semantic boundaries, and outputs clean self-contained sections with context, summaries, or titles.
+
+- **Best for:** Complex, messy, highly technical documents where rule-based splitters fail (mixed tables, contracts, research summaries).
+- **Risk:** Substantial inference cost and high processing latency per document.
 
 <details>
-<summary><b>Code & Example: Agentic/LLM-based Chunking</b></summary>
+<summary>Code & Example</summary>
 
 ```python
 from langchain_core.prompts import PromptTemplate
@@ -847,7 +892,7 @@ mock_response = {
 print(mock_response)
 ```
 
-**Output Example:**
+**Output:**
 ```json
 {
   "chunks": [
@@ -866,16 +911,19 @@ print(mock_response)
 
 ---
 
-##### 10. Hybrid chunking
-Combines multiple chunking techniques sequentially in a multi-stage ingestion pipeline. For example:
-1. **Stage 1 (Structure):** Split document into major sections using `MarkdownHeaderTextSplitter`.
-2. **Stage 2 (Recursive / Token):** If any section exceeds max token length, split it using `RecursiveCharacterTextSplitter` or `TokenTextSplitter` with 15% overlap.
-3. **Stage 3 (Metadata Propagation):** Preserve parent structural headers in the child chunks for filtered vector search.
-* **Best used for:** Enterprise production RAG architectures requiring both structural awareness and strict token boundaries.
-* **Risk:** Slightly more complex ingestion pipeline logic.
+#### 10. Hybrid Chunking
+
+Combines multiple strategies sequentially in a multi-stage ingestion pipeline:
+
+1. **Stage 1 (Structure):** Split by headers using `MarkdownHeaderTextSplitter`.
+2. **Stage 2 (Recursive / Token):** Sub-split oversized sections using `RecursiveCharacterTextSplitter` or `TokenTextSplitter` with ~15% overlap.
+3. **Stage 3 (Metadata Propagation):** Preserve parent structural headers in child chunks for filtered vector search.
+
+- **Best for:** Enterprise production RAG requiring both structural awareness and strict token limits.
+- **Risk:** Slightly more complex ingestion pipeline logic.
 
 <details>
-<summary><b>Code & Example: Hybrid Chunking</b></summary>
+<summary>Code & Example</summary>
 
 ```python
 from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
@@ -908,7 +956,7 @@ for i, doc in enumerate(hybrid_chunks, 1):
     print(f"Content: {doc.page_content}\n")
 ```
 
-**Output Example:**
+**Output:**
 ```text
 Hybrid Chunk 1 | Metadata: {'Section': 'System Architecture Guide', 'SubSection': 'Ingestion Engine'}
 Content: ## Ingestion Engine
@@ -930,169 +978,151 @@ Content: It utilizes a reciprocal rank fusion algorithm to merge candidate sets 
 
 ### Phase 2: Query Processing
 
-* The user submits a query (e.g., "What is RAG?").
-* The query is converted into an embedding.
-* The system performs a **Similarity Search** in the Vector Database to find the most relevant document chunks.
+1. User submits a query (e.g., *"What is RAG?"*).
+2. Query is converted into an embedding.
+3. The system performs **Similarity Search** in the Vector DB to find the most relevant document chunks.
 
 ### Phase 3: Generation
 
-* The relevant chunks are formatted as **Augmented Context**.
-* This context is fed into a **Large Language Model** (like GPT-4, Claude, or Llama).
-* The LLM synthesizes the information and outputs the **Generated Response**.
+1. Relevant chunks are formatted as **Augmented Context**.
+2. Context is fed into a Large Language Model (GPT-4, Claude, Llama, etc.).
+3. The LLM synthesizes the information and outputs the **Generated Response**.
 
 ---
 
-## Comparison: Traditional LLM vs. RAG (Customer Support Example)
+## Traditional LLM vs. RAG — Comparison
 
-| Feature | Traditional LLM (Without RAG) | AI Assistant (With RAG) |
-| --- | --- | --- |
+| Feature | Traditional LLM (No RAG) | AI Assistant (With RAG) |
+| :--- | :--- | :--- |
 | **Data Source** | Training data only | LLM + Vector Database |
-| **Response Type** | Generic, unhelpful, or outdated | Specific, actionable, and up-to-date |
-| **Example Output** | *"Generally, most companies offer 30-day returns, but policies may vary..."* | *"According to our current policy (v3.2), Black Friday purchases have an extended 60-day window..."* |
+| **Response Type** | Generic, unhelpful, or outdated | Specific, actionable, and current |
+| **Example Output** | *"Generally, most companies offer 30-day returns..."* | *"According to our current policy (v3.2), Black Friday purchases have a 60-day window..."* |
 
 ---
 
 ## Real-World Benefits & Business Impact
 
-* **Cost Savings:** Reduces the need for constant model retraining. *(Example: JPMorgan saved $150M annually by using RAG instead of fine-tuning models monthly).*
-* **Accuracy (Reducing Hallucinations):** Grounds the AI in actual facts. *(Example: Microsoft reported a 94% reduction in AI hallucinations in their Copilot products).*
-* **Flexibility & Real-Time Updates:** Can ingest live data instantly. *(Example: Bloomberg updates its financial AI assistant hourly with new market data, which is impossible with traditional LLMs).*
-* **Compliance & Sourcing:** Allows the AI to provide citations. *(Example: Healthcare companies use RAG to ensure AI responses always cite approved medical sources).*
+- **Cost Savings** — Reduces constant model retraining. *(Example: JPMorgan saved $150M annually by using RAG instead of monthly fine-tuning.)*
+- **Accuracy** — Grounds AI in actual facts, reducing hallucinations. *(Example: Microsoft reported 94% hallucination reduction in Copilot.)*
+- **Real-Time Updates** — Can ingest live data instantly. *(Example: Bloomberg updates its financial AI hourly — impossible with traditional LLMs.)*
+- **Compliance & Sourcing** — AI can provide citations. *(Example: Healthcare companies ensure AI responses always cite approved medical sources.)*
 
-  [1-2RAG (1).pdf](https://github.com/user-attachments/files/29892069/1-2RAG.1.pdf)
+[1-2RAG (1).pdf](https://github.com/user-attachments/files/29892069/1-2RAG.1.pdf)
 
- </details>
+</details>
 
+---
 
-<details><summary><a id="topic-5-semantic-chunking" name="topic-5-semantic-chunking"></a>Phase 3: Semantic Chunking — Needed to split documents by topic/meaning boundaries instead of fixed token lengths to preserve context</summary>
+<details><summary><a id="topic-5-semantic-chunking" name="topic-5-semantic-chunking"></a>Phase 3 — Semantic Chunking: Meaning-Based Document Splitting</summary>
 
 *Semantic Chunking is a text-splitting technique that divides content based on meaning instead of fixed size or paragraphs.*
-  
-**Semantic Chunking**:
 
 ## Overview
 
-**Semantic Chunking** is the process of splitting a document into meaningful units (chunks) based on **semantic similarity** rather than fixed criteria like token count or line numbers.
+**Semantic Chunking** splits a document into meaningful units (chunks) based on **semantic similarity** rather than fixed criteria like token count or line numbers.
 
-In Retrieval-Augmented Generation (RAG) systems, semantic chunking improves performance through the pipeline:
+In RAG systems, the pipeline improvement chain is:
 
 $$\text{Better chunks} \rightarrow \text{Better retrieval} \rightarrow \text{Better grounding} \rightarrow \text{Better answers}$$
 
-Chunks generated via this method are designed to be **self-contained, contextually rich, and logically separated**.
+Chunks from this method are designed to be **self-contained, contextually rich, and logically separated**.
 
 ---
 
 ## How It Works (Step-by-Step)
 
-1. **Document Segmentation:** The document is split into smaller units, such as individual sentences or paragraphs.
-2. **Sentence Embedding:** Each sentence/unit is converted into a vector representation using an embedding model.
-3. **Semantic Similarity Check:** The similarity (e.g., Cosine Similarity) between adjacent sentence embeddings is calculated and compared against a defined threshold (e.g., $0.80$).
-4. **Sentence Merging:** Adjacent sentences are merged into a single chunk if their similarity score meets or exceeds the threshold.
-5. **Form Chunks:** The process outputs grouped chunks containing semantically related sentences, while distinct sentences are separated into standalone chunks.
+1. **Document Segmentation** — Split the document into smaller units (sentences or paragraphs).
+2. **Sentence Embedding** — Convert each unit into a vector using an embedding model.
+3. **Semantic Similarity Check** — Calculate cosine similarity between adjacent sentence embeddings vs. a defined threshold (e.g., 0.80).
+4. **Sentence Merging** — Merge adjacent sentences into a chunk if their similarity meets or exceeds the threshold.
+5. **Output Chunks** — Grouped chunks contain semantically related sentences; distinct sentences are separated.
 
 ---
 
 ## Example
 
-Given the input text:
-
+**Input text:**
 1. *"LangChain is a framework for building LLM-powered apps."*
 2. *"It integrates with tools like OpenAI and Pinecone."*
 3. *"The Eiffel Tower is located in Paris."*
 4. *"France is a popular tourist destination."*
 
-**Output Chunks:**
+**Output chunks:**
+- **Chunk 1:** Sentences 1 + 2 — merged because both discuss LangChain/LLMs.
+- **Chunk 2:** Sentence 3 — standalone (different topic: landmarks).
+- **Chunk 3:** Sentence 4 — standalone (different topic: tourism).
 
-* **Chunk 1:** `["LangChain is a framework...", "It integrates with tools..."]` *(Merged because both discuss LangChain/LLMs)*
-* **Chunk 2:** `["The Eiffel Tower is located in Paris."]`
-* **Chunk 3:** `["France is a popular tourist destination."]`
+[33-Semantic+Chunking.pdf](https://github.com/user-attachments/files/29892074/33-Semantic%2BChunking.pdf)
 
-  [33-Semantic+Chunking.pdf](https://github.com/user-attachments/files/29892074/33-Semantic%2BChunking.pdf)
+*Additional notes on text representation techniques: [Text Representation tech. Repo](https://github.com/Shivanshvyas1729/pydantic_notes/blob/main/nlp/Text%20Representation%20tech.md).*
 
-*You can find the documentation in the [Text Representation tech. Repo](https://github.com/Shivanshvyas1729/pydantic_notes/blob/main/nlp/Text%20Representation%20tech.md).*
 </details>
 
+---
 
-<details><summary><a id="topic-4-vector-db" name="topic-4-vector-db"></a>Phase 4: Vector Store vs. Vector Databases — Needed for high-dimensional embedding storage and fast semantic similarity search at scale</summary>
+<details><summary><a id="topic-4-vector-db" name="topic-4-vector-db"></a>Phase 4 — Vector Stores vs. Vector Databases</summary>
 
-# Study Notes: Vector Stores vs. Vector Databases
+# Vector Stores vs. Vector Databases
 
 ## The Golden Rule
 
-Start with a **Vector Store** for prototyping and learning. Graduate to a **Vector Database** when you need production-scale features, reliability, and advanced querying capabilities.
+**Start with a Vector Store** for prototyping. **Graduate to a Vector Database** when you need production-scale features, reliability, and advanced querying.
 
 ---
 
 ## 1. Vector Stores
 
-A lightweight library or tool focused on storing and searching vectors efficiently.
+A lightweight library focused on storing and searching vectors efficiently.
 
-### Key Characteristics
+**Key characteristics:**
+- Core function: Simple similarity search (K nearest neighbors)
+- Architecture: In-memory or local file (single-machine)
+- Scale: Handles smaller datasets (< 1 million vectors)
+- Speed: Extremely fast (microseconds)
+- Setup & Cost: Quick setup (minutes), typically local, usually free
 
-* **Core Function:** Simple similarity search (finding the K nearest neighbors to a query vector).
-* **Architecture:** Usually runs in-memory or as a local file (single-machine operation).
-* **Scale:** Handles smaller datasets (< 1 million vectors).
-* **Speed:** Extremely fast query speed (Microseconds).
-* **Setup & Cost:** Quick to set up (Minutes), typically deployed locally, and usually free.
+**When to use:**
+- Proof of concept (POC)
+- Less than 1 million vectors
+- Need absolute fastest search speed
+- Limited budget or full control
+- Embedded applications
 
-### When to Use
-
-* Building a proof of concept (POC).
-* Working with less than 1 million vectors.
-* You need the absolute fastest possible search speed.
-* You have a limited budget or want full control over the implementation.
-* Building embedded applications.
-
-### Popular Examples
-
-* FAISS
-* Annoy
-* ChromaDB
-* ScaNN
-* NMSLIB
+**Popular examples:** FAISS, Annoy, ChromaDB, ScaNN, NMSLIB
 
 ---
 
 ## 2. Vector Databases
 
-A full-featured database system designed for managing and querying vector data at scale.
+A full-featured database system for managing and querying vector data at scale.
 
-### Key Characteristics
+**Key characteristics:**
+- Core function: Advanced search (filters, metadata queries) + full CRUD
+- Architecture: Distributed system with replication, sharding, high availability
+- Scale: Built for massive datasets (billions+ of vectors)
+- Speed: Slightly slower due to overhead (milliseconds)
+- Setup & Cost: Longer setup (hours/days), cloud-deployed, paid ($$$)
 
-* **Core Function:** Advanced search (filters, metadata queries) and full database operations (CRUD: Create, Read, Update, Delete).
-* **Architecture:** Distributed system with replication, sharding, and high availability.
-* **Scale:** Built for massive datasets (Billions+ of vectors).
-* **Speed:** Slightly slower query speed due to overhead (Milliseconds).
-* **Setup & Cost:** Takes longer to set up (Hours/Days), usually cloud-deployed, and incurs costs ($$$).
+**When to use:**
+- Production and enterprise applications
+- Scaling beyond millions of vectors
+- High availability and reliability requirements
+- Advanced metadata filtering alongside vector search
+- Multiple users/tenants
+- Managed infrastructure
 
-### When to Use
-
-* Building production and enterprise applications.
-* Need to scale beyond millions of vectors.
-* Require high availability and system reliability.
-* Need advanced filtering and metadata search alongside vector search.
-* Have multiple users/tenants accessing the data.
-* Want managed infrastructure rather than handling it locally.
-
-### Popular Examples
-
-* Pinecone
-* Weaviate
-* Qdrant
-* Milvus
-* Vespa
-* DataStax (AstraDB)
+**Popular examples:** Pinecone, Weaviate, Qdrant, Milvus, Vespa, DataStax (AstraDB)
 
 ---
 
-## 3. Quick Reference Comparison
+## Quick Reference Comparison
 
 | Feature | Vector Store | Vector Database |
-| --- | --- | --- |
+| :--- | :--- | :--- |
 | **Scale** | ~1 Million vectors | Billions+ vectors |
 | **Setup Time** | Minutes | Hours/Days |
 | **Query Speed** | Microseconds | Milliseconds |
-| **Features** | Basic Search | Full CRUD & Metadata filtering |
+| **Features** | Basic search | Full CRUD & metadata filtering |
 | **Deployment** | Local | Cloud / Distributed |
 | **Cost** | Free | Paid ($$$) |
 
@@ -1100,25 +1130,30 @@ A full-featured database system designed for managing and querying vector data a
 
 ---
 
-## 💻 Vector Store & Database Hands-On Code Implementations
+## Hands-On Code Implementations
 
-Below are complete, production-ready code guides for creating, loading, persisting, querying, dynamically adding data, and building retrievers/RAG chains across all major vector stores and databases.
+<details>
+<summary>Version Note — LangChain v0.3: Use partner packages, not langchain_community</summary>
+<ul>
+<li><strong>Current standard:</strong> Use dedicated partner packages — <code>langchain_chroma</code>, <code>langchain_pinecone</code>, <code>langchain_qdrant</code> — instead of the monolithic <code>langchain_community.vectorstores</code> imports where possible. Partner packages are actively maintained and receive updates independently.</li>
+</ul>
+</details>
 
 ---
 
 ### 1. ChromaDB (`8.1-chromadb.ipynb`)
 
 <details>
-<summary><b>Code & Implementation: ChromaDB (Create, Query, Add Data, Retriever & RAG Chains)</b></summary>
+<summary>Code & Implementation: ChromaDB (Create, Query, Add Data, Retriever & RAG Chains)</summary>
 
-Chroma is an open-source, AI-native embedding database designed for developer productivity and local-first prototyping.
+Chroma is an open-source, AI-native embedding database for developer productivity and local-first prototyping.
 
-#### 📦 Installation & Setup
+**Installation:**
 ```bash
 pip install -qU langchain-chroma langchain-openai langchain-community chromadb
 ```
 
-#### 🛠️ Step 1: Document Ingestion, Chunking & Embeddings
+**Step 1 — Document Ingestion, Chunking & Embeddings:**
 ```python
 import os
 from dotenv import load_dotenv
@@ -1154,7 +1189,7 @@ chunks = text_splitter.split_documents(sample_docs)
 embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
 ```
 
-#### 🏗️ Step 2: Create & Persist Chroma Vector Store (`ingest.py`)
+**Step 2 — Create & Persist Chroma Vector Store (`ingest.py`):**
 ```python
 # Create persistent vector store on disk
 persist_directory = "./chroma_db"
@@ -1169,16 +1204,16 @@ vectorstore = Chroma.from_documents(
 print(f"Total vectors stored in Chroma: {vectorstore._collection.count()}")
 ```
 
-#### 🔄 Step 2.1: Reload Persisted Chroma Store Somewhere Else (`app.py` / Zero Re-Embedding)
-To load and use an already created Chroma store in a different script, API server, or module without re-ingesting or re-embedding documents:
+**Step 2.1 — Reload Persisted Chroma Store (`app.py` / Zero Re-Embedding):**
+
+To load an already-created Chroma store in a different script, API server, or module without re-ingesting:
 ```python
-# In your app.py / api.py / query script:
 from langchain_chroma import Chroma
 from langchain_openai import OpenAIEmbeddings
 
 embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
 
-# 🔹 Connect directly to the existing on-disk collection (No from_documents needed!)
+# Connect directly to the existing on-disk collection (No from_documents needed!)
 loaded_vectorstore = Chroma(
     persist_directory="./chroma_db",
     embedding_function=embeddings,
@@ -1188,7 +1223,7 @@ loaded_vectorstore = Chroma(
 print(f"Loaded existing Chroma store with {loaded_vectorstore._collection.count()} vectors.")
 ```
 
-#### 🔍 Step 3: Direct Similarity Search & Scores
+**Step 3 — Direct Similarity Search & Scores:**
 ```python
 query = "What is deep learning and neural networks?"
 
@@ -1199,22 +1234,21 @@ for i, doc in enumerate(results):
     print(f"Content: {doc.page_content}")
     print(f"Metadata: {doc.metadata}")
 
-# Similarity Search with Distance Scores (Lower score = closer distance / higher similarity for L2/Cosine distance)
+# Similarity Search with Distance Scores (Lower score = closer distance for L2/Cosine)
 results_with_scores = vectorstore.similarity_search_with_score(query, k=2)
 for doc, score in results_with_scores:
     print(f"Score (Distance): {score:.4f} | Content: {doc.page_content[:60]}...")
 ```
 
-#### ➕ Step 4: Adding More Data to Existing Chroma Store
+**Step 4 — Adding More Data to Existing Chroma Store:**
 ```python
-# Create new documents/chunks
 new_doc = Document(
     page_content="Reinforcement Learning (RL) trains agents through reward and penalty feedback to maximize cumulative reward.",
     metadata={"topic": "RL", "source": "rl_notes.txt", "doc_id": 4}
 )
 new_chunks = text_splitter.split_documents([new_doc])
 
-# Add documents dynamically to existing vectorstore
+# Add documents dynamically
 vectorstore.add_documents(new_chunks)
 
 # Or add raw texts directly with metadata
@@ -1226,9 +1260,8 @@ vectorstore.add_texts(
 print(f"Total vectors after addition: {vectorstore._collection.count()}")
 ```
 
-#### 🎯 Step 5: Metadata Filtering
+**Step 5 — Metadata Filtering:**
 ```python
-# Retrieve only documents matching specific metadata criteria
 filtered_results = vectorstore.similarity_search(
     query="Explain learning methods",
     k=3,
@@ -1238,38 +1271,33 @@ for doc in filtered_results:
     print(f"[{doc.metadata['topic']}] {doc.page_content}")
 ```
 
-#### 🚀 Step 6: Converting to Retriever (Quick Reference)
+**Step 6 — Convert to Retriever:**
 ```python
-# Convert vector store to retriever for RAG pipelines
 retriever = vectorstore.as_retriever(
     search_type="similarity", # or "mmr", "similarity_score_threshold"
     search_kwargs={"k": 3}
 )
 ```
 
-> 🔗 **Production RAG Chains & Conversational Memory Pipelines:**
-> For the complete implementations of **Custom LCEL RAG Chains**, **Multi-Turn Conversational RAG with Chat History (`create_history_aware_retriever`)**, and the **`format_docs` Decision Framework**, jump directly to **[Phase 7: RAG Chain Construction, Conversational Memory & format_docs Decision Framework](#topic-7-rag-chains)**.
+> **Production RAG Chains & Conversational Memory:** For complete implementations of Custom LCEL RAG Chains, Multi-Turn Conversational RAG with Chat History (`create_history_aware_retriever`), and the `format_docs` Decision Framework, see [Phase 7: RAG Chain Construction](#topic-7-rag-chains).
 
 </details>
 
-
-<br>
-
 ---
 
-### 2. FAISS (Facebook AI Similarity Search) (`8.2-faiss.ipynb`)
+### 2. FAISS — Facebook AI Similarity Search (`8.2-faiss.ipynb`)
 
 <details>
-<summary><b>Code & Implementation: FAISS (Create, Cosine Comparison, Save/Load, Add Data, Retriever & Chains)</b></summary>
+<summary>Code & Implementation: FAISS (Create, Cosine Comparison, Save/Load, Add Data, Retriever & Chains)</summary>
 
-FAISS (Facebook AI Similarity Search) is a high-performance C++ library with Python wrappers developed by Meta for dense vector similarity search with extreme GPU/CPU optimization and low memory overhead.
+FAISS is a high-performance C++ library with Python wrappers by Meta for dense vector similarity search with GPU/CPU optimization and low memory overhead.
 
-#### 📦 Installation & Setup
+**Installation:**
 ```bash
 pip install -qU faiss-cpu langchain-community langchain-openai numpy
 ```
 
-#### 🛠️ Step 1: Initializing FAISS Vector Store & Semantic Embeddings
+**Step 1 — Initialize FAISS Vector Store & Embeddings:**
 ```python
 import os
 import numpy as np
@@ -1305,7 +1333,7 @@ vectorstore = FAISS.from_documents(documents=chunks, embedding=embeddings)
 print("FAISS vectorstore created successfully!")
 ```
 
-#### 📐 Step 2: Measuring Cosine Similarity Directly
+**Step 2 — Measuring Cosine Similarity Directly:**
 ```python
 def compare_embeddings(text1: str, text2: str) -> float:
     emb1 = np.array(embeddings.embed_query(text1))
@@ -1318,7 +1346,7 @@ print("Similarity 'AI' vs 'Pizza':", compare_embeddings("AI", "Pizza"))
 print("Similarity 'Machine Learning' vs 'ML':", compare_embeddings("Machine Learning", "ML"))
 ```
 
-#### 💾 Step 3: Local Persistence (Save & Load Index)
+**Step 3 — Local Persistence (Save & Load):**
 ```python
 # 1. Save FAISS index and docstore locally
 vectorstore.save_local("faiss_index")
@@ -1333,7 +1361,7 @@ loaded_vectorstore = FAISS.load_local(
 print("Loaded FAISS index successfully!")
 ```
 
-#### ➕ Step 4: Adding More Documents to FAISS Index
+**Step 4 — Adding More Documents:**
 ```python
 new_docs = [
     Document(
@@ -1359,7 +1387,7 @@ vectorstore.add_texts(
 print("Added new documents to FAISS index.")
 ```
 
-#### 🔍 Step 5: Similarity Search & Metadata Filtering
+**Step 5 — Similarity Search & Metadata Filtering:**
 ```python
 query = "What is deep learning and neural networks?"
 
@@ -1368,7 +1396,7 @@ results = vectorstore.similarity_search(query, k=3)
 for i, doc in enumerate(results):
     print(f"Doc {i+1}: {doc.page_content}")
 
-# Search with Score (In FAISS L2 distance: lower score = more similar)
+# Search with Score (FAISS L2 distance: lower score = more similar)
 results_with_scores = vectorstore.similarity_search_with_score(query, k=3)
 for doc, score in results_with_scores:
     print(f"L2 Distance Score: {score:.4f} | Topic: {doc.metadata.get('topic')} | Text: {doc.page_content[:50]}...")
@@ -1382,7 +1410,7 @@ filtered_results = vectorstore.similarity_search(
 print(f"Filtered Results count: {len(filtered_results)}")
 ```
 
-#### 🚀 Step 6: FAISS Retriever with MMR & LCEL Streaming RAG
+**Step 6 — FAISS Retriever with MMR & LCEL Streaming RAG:**
 ```python
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
@@ -1432,16 +1460,16 @@ print()
 ### 3. InMemoryVectorStore (`8.3-Othervectorstores.ipynb`)
 
 <details>
-<summary><b>Code & Implementation: InMemoryVectorStore (Lightweight In-Memory Testing & LCEL)</b></summary>
+<summary>Code & Implementation: InMemoryVectorStore (Lightweight In-Memory Testing & LCEL)</summary>
 
-`InMemoryVectorStore` is the standard, ultra-lightweight, zero-dependency in-memory vector store shipped inside `langchain-core` for unit testing, educational demos, and ephemeral scripts.
+`InMemoryVectorStore` is the standard, ultra-lightweight, zero-dependency in-memory vector store shipped inside `langchain-core` for unit testing, demos, and ephemeral scripts.
 
-#### 📦 Installation & Setup
+**Installation:**
 ```bash
 pip install -qU langchain-core langchain-openai
 ```
 
-#### 🛠️ Complete Implementation
+**Complete Implementation:**
 ```python
 import os
 from dotenv import load_dotenv
@@ -1491,16 +1519,16 @@ for doc in retrieved_docs:
 ### 4. Pinecone Vector Database (`8.4-PineconeVectorDB.ipynb`)
 
 <details>
-<summary><b>Code & Implementation: Pinecone Serverless Cloud Vector Database</b></summary>
+<summary>Code & Implementation: Pinecone Serverless Cloud Vector Database</summary>
 
-Pinecone is a fully managed, cloud-native vector database designed for high-availability enterprise workloads, serverless index scaling, and sub-second metadata-filtered similarity queries across billions of vectors.
+Pinecone is a fully managed, cloud-native vector database for high-availability enterprise workloads with serverless index scaling and sub-second metadata-filtered similarity queries across billions of vectors.
 
-#### 📦 Installation & Setup
+**Installation:**
 ```bash
 pip install -qU pinecone langchain-pinecone langchain-openai
 ```
 
-#### 🛠️ Complete Implementation
+**Complete Implementation:**
 ```python
 import os
 import time
@@ -1562,7 +1590,6 @@ documents = [
     )
 ]
 
-# Ingest documents into Pinecone
 vector_store.add_documents(documents=documents)
 print("Documents successfully ingested into Pinecone!")
 
@@ -1606,16 +1633,16 @@ for doc in retrieved_docs:
 ### 5. DataStax AstraDB (`8.5-Datastaxdb+(1).ipynb`)
 
 <details>
-<summary><b>Code & Implementation: DataStax AstraDB (Managed Apache Cassandra Vector DB)</b></summary>
+<summary>Code & Implementation: DataStax AstraDB (Managed Apache Cassandra Vector DB)</summary>
 
-DataStax AstraDB is a cloud-native, multi-model vector database built on top of Apache Cassandra, offering massive horizontal scalability, NoSQL + Vector hybrid capabilities, and multi-region replication.
+DataStax AstraDB is a cloud-native, multi-model vector database built on Apache Cassandra, offering massive horizontal scalability, NoSQL + Vector hybrid capabilities, and multi-region replication.
 
-#### 📦 Installation & Setup
+**Installation:**
 ```bash
 pip install -qU "langchain>=0.3.0" langchain-astradb langchain-openai
 ```
 
-#### 🛠️ Complete Implementation
+**Complete Implementation:**
 ```python
 import os
 from dotenv import load_dotenv
@@ -1662,7 +1689,6 @@ documents = [
     )
 ]
 
-# Ingest documents
 vector_store.add_documents(documents=documents)
 print("Documents added to AstraDB!")
 
@@ -1693,35 +1719,30 @@ for doc in retrieved_docs:
 ### 6. Qdrant Vector Database (Local & Cloud)
 
 <details>
-<summary><b>Code & Implementation: Qdrant Vector Database (Local Memory, Disk, Docker & Cloud Serverless)</b></summary>
+<summary>Code & Implementation: Qdrant (Local Memory, Disk, Docker & Cloud Serverless)</summary>
 
-Qdrant is an enterprise-grade, open-source vector search engine and database written in Rust. It offers ultra-low latency vector similarity search, advanced payload (metadata) filtering, vector quantization, and support for hybrid (dense + sparse) search.
+Qdrant is an enterprise-grade, open-source vector search engine written in Rust. It offers ultra-low latency search, advanced payload filtering, vector quantization, and hybrid (dense + sparse) search.
 
-Qdrant natively supports **4 flexible deployment modes**:
-* 🟢 **Local In-Memory Mode (`location=":memory:"`)**: Runs entirely in RAM for unit tests and quick scripting (no server needed).
-* 🟡 **Local Disk Persistence (`path="./qdrant_db"`)**: Persists vectors and metadata directly to local disk without Docker or background servers.
-* 🟠 **Local Docker Container / Self-Hosted Server (`url="http://localhost:6333"`)**: Standalone server with built-in Web UI Dashboard (`http://localhost:6333/dashboard`).
-* 🔵 **Qdrant Cloud Serverless / Managed Cluster (`url="https://<cluster-id>.qdrant.tech:6333"`, `api_key="<api-key>"`)**: Fully managed cloud service for high-concurrency production workloads.
+**4 Flexible Deployment Modes:**
+- **Local In-Memory (`location=":memory:"`)** — RAM-only, for unit tests and quick scripting (no server).
+- **Local Disk Persistence (`path="./qdrant_db"`)** — Persists to local disk, no Docker or background server needed.
+- **Local Docker / Self-Hosted (`url="http://localhost:6333"`)** — Standalone server with Web UI Dashboard.
+- **Qdrant Cloud (`url="https://<cluster-id>.qdrant.tech:6333"`, `api_key="..."`)** — Fully managed cloud for high-concurrency production workloads.
 
----
-
-#### 📦 Installation & Setup
+**Installation:**
 ```bash
 pip install -qU qdrant-client langchain-qdrant langchain-openai langchain-core
 ```
 
-#### 🐳 Optional: Running Local Qdrant with Docker
+**Optional: Run Local Qdrant with Docker:**
 ```bash
-# Run Qdrant container with persistent volume and Web Dashboard (Port 6333: REST/WebUI, Port 6334: gRPC)
+# Port 6333: REST/WebUI | Port 6334: gRPC
 docker run -d -p 6333:6333 -p 6334:6334 \
     -v $(pwd)/qdrant_storage:/qdrant/storage:z \
     --name qdrant_rag qdrant/qdrant
 ```
 
----
-
-#### 🛠️ Complete Implementation (Local & Cloud Modes)
-
+**Common Setup:**
 ```python
 import os
 import time
@@ -1737,7 +1758,7 @@ from qdrant_client.http.models import Distance, VectorParams
 load_dotenv()
 os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY")
 
-# 1. Prepare Embeddings & Text Splitter
+# Prepare Embeddings & Text Splitter
 embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
 embedding_dim = 1536  # text-embedding-3-small output dimension
 
@@ -1761,10 +1782,7 @@ chunks = text_splitter.split_documents(sample_documents)
 collection_name = "production_knowledge_base"
 ```
 
----
-
-#### ⚙️ Step 1: Initializing Qdrant Client (Choose Local or Cloud)
-
+**Step 1 — Initialize Qdrant Client (Choose Deployment Mode):**
 ```python
 # =====================================================================
 # CHOOSE YOUR DEPLOYMENT MODE:
@@ -1780,11 +1798,11 @@ client = QdrantClient(path="./qdrant_db")
 # client = QdrantClient(url="http://localhost:6333")
 
 # MODE D: Qdrant Cloud (Managed Serverless / Dedicated Cluster)
-# QDRANT_CLOUD_URL = os.getenv("QDRANT_CLOUD_URL")  # e.g. "https://xxxxxx.us-east-1-0.aws.cloud.qdrant.io:6333"
+# QDRANT_CLOUD_URL = os.getenv("QDRANT_CLOUD_URL")
 # QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
 # client = QdrantClient(url=QDRANT_CLOUD_URL, api_key=QDRANT_API_KEY)
 
-# 2. Ensure Collection Exists with Specified Vector Configuration & Distance Metric
+# Ensure Collection Exists
 if not client.collection_exists(collection_name):
     client.create_collection(
         collection_name=collection_name,
@@ -1792,7 +1810,7 @@ if not client.collection_exists(collection_name):
     )
     print(f"Created Qdrant collection: {collection_name}")
 
-# 3. Connect LangChain QdrantVectorStore
+# Connect LangChain QdrantVectorStore
 vector_store = QdrantVectorStore(
     client=client,
     collection_name=collection_name,
@@ -1800,16 +1818,13 @@ vector_store = QdrantVectorStore(
 )
 ```
 
----
-
-#### 📥 Step 2: Ingest Documents & Add More Data Dynamically
-
+**Step 2 — Ingest Documents & Add More Data Dynamically:**
 ```python
 # 1. Ingest initial document chunks
 vector_store.add_documents(documents=chunks)
 print("Ingested initial document chunks into Qdrant!")
 
-# 2. Dynamically add new documents / updates to existing collection
+# 2. Dynamically add new documents
 new_doc = Document(
     page_content="Scalar Quantization in Qdrant compresses 32-bit floats into 8-bit integers, reducing RAM usage by up to 75%.",
     metadata={"category": "optimization", "topic": "Quantization", "author": "dev", "doc_id": 4}
@@ -1817,7 +1832,7 @@ new_doc = Document(
 new_chunks = text_splitter.split_documents([new_doc])
 vector_store.add_documents(new_chunks)
 
-# 3. Dynamically add raw texts directly with metadata
+# 3. Add raw texts directly
 vector_store.add_texts(
     texts=["Binary Quantization in Qdrant offers up to 40x speedup and 95% memory compression for high-volume datasets."],
     metadatas=[{"category": "optimization", "topic": "Quantization", "author": "dev", "doc_id": 5}]
@@ -1825,10 +1840,7 @@ vector_store.add_texts(
 print("Added dynamic documents and texts to Qdrant.")
 ```
 
----
-
-#### 🔍 Step 3: Direct Similarity Search & Similarity with Scores
-
+**Step 3 — Direct Similarity Search & Scores:**
 ```python
 query = "How does vector quantization optimize memory in Qdrant?"
 
@@ -1839,17 +1851,14 @@ for i, doc in enumerate(results):
     print(f"\n[Result {i+1}] (Topic: {doc.metadata.get('topic')})")
     print(f"Content: {doc.page_content}")
 
-# 2. Similarity Search with Scores (Higher cosine score = greater semantic similarity)
+# 2. Similarity Search with Scores (Higher cosine score = greater similarity)
 results_with_scores = vector_store.similarity_search_with_score(query, k=2)
 print("\n--- Similarity Search with Scores ---")
 for doc, score in results_with_scores:
     print(f"Cosine Similarity Score: {score:.4f} | Content: {doc.page_content[:65]}...")
 ```
 
----
-
-#### 🎯 Step 4: Advanced Metadata & Payload Pre-Filtering
-
+**Step 4 — Advanced Metadata & Payload Pre-Filtering:**
 ```python
 # Option A: Simple Dictionary Filter
 dict_filtered = vector_store.similarity_search(
@@ -1881,10 +1890,7 @@ for doc in advanced_results:
     print(f"[{doc.metadata.get('topic')}] {doc.page_content}")
 ```
 
----
-
-#### 🚀 Step 5: Converting to Retriever (Similarity, MMR, Threshold) & LCEL RAG
-
+**Step 5 — Retriever (Similarity, MMR, Threshold) & LCEL RAG:**
 ```python
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
@@ -1931,10 +1937,7 @@ print("\n--- RAG Generated Answer ---")
 print(response)
 ```
 
----
-
-#### 🧠 Step 6: Multi-Turn Conversational RAG with Memory & Qdrant
-
+**Step 6 — Multi-Turn Conversational RAG with Memory & Qdrant:**
 ```python
 from langchain_core.prompts import MessagesPlaceholder
 from langchain_core.messages import HumanMessage, AIMessage
@@ -1982,25 +1985,26 @@ print("\nTurn 2 Answer:\n", res2["answer"])
 ### 7. Unified Vector Store & Retriever API Cheatsheet
 
 <details>
-<summary><b>Quick Reference: Universal Retriever Methods, Search Types & Parameters</b></summary>
+<summary>Quick Reference: Universal Retriever Methods, Search Types & Parameters</summary>
 
-LangChain provides a unified interface across all vector stores. Any vector store can be converted into a `Retriever` using `.as_retriever()`:
+LangChain provides a unified interface across all vector stores. Any vector store can be converted into a `Retriever` using `.as_retriever()`.
 
-| Vector Store / DB | Creation Method | Local Persistence | Add Data Method | Metadata Filtering Syntax |
+| Vector Store / DB | Creation Method | Local Persistence | Add Data | Metadata Filter Syntax |
 | :--- | :--- | :--- | :--- | :--- |
-| **ChromaDB** | `Chroma.from_documents(docs, emb, persist_directory=...)` | Native directory (`./chroma_db`) | `vectorstore.add_documents()` / `add_texts()` | `filter={"field": "value"}` |
-| **FAISS** | `FAISS.from_documents(docs, emb)` | `save_local("path")` & `load_local("path", ...)` | `vectorstore.add_documents()` / `add_texts()` | `filter={"field": "value"}` |
-| **InMemoryVectorStore** | `InMemoryVectorStore(emb)` | Ephemeral (in RAM) | `vector_store.add_documents()` | Built-in callable filter |
-| **Pinecone** | `PineconeVectorStore(index_name=..., embedding=...)` | Cloud Managed | `vector_store.add_documents()` | `filter={"field": "value"}` |
-| **AstraDB** | `AstraDBVectorStore(collection_name=..., ...)` | Cloud Managed | `vector_store.add_documents()` | `filter={"field": "value"}` |
-| **Qdrant** | `QdrantVectorStore(client=..., collection_name=..., ...)` | Local Disk (`path="./qdrant_db"`) or Cloud (`url=...`) | `vector_store.add_documents()` / `add_texts()` | `filter={"field": "value"}` or native `models.Filter` |
+| **ChromaDB** | `Chroma.from_documents(docs, emb, persist_directory=...)` | Native directory (`./chroma_db`) | `add_documents()` / `add_texts()` | `filter={"field": "value"}` |
+| **FAISS** | `FAISS.from_documents(docs, emb)` | `save_local("path")` & `load_local("path", ...)` | `add_documents()` / `add_texts()` | `filter={"field": "value"}` |
+| **InMemoryVectorStore** | `InMemoryVectorStore(emb)` | Ephemeral (in RAM) | `add_documents()` | Built-in callable filter |
+| **Pinecone** | `PineconeVectorStore(index_name=..., embedding=...)` | Cloud Managed | `add_documents()` | `filter={"field": "value"}` |
+| **AstraDB** | `AstraDBVectorStore(collection_name=..., ...)` | Cloud Managed | `add_documents()` | `filter={"field": "value"}` |
+| **Qdrant** | `QdrantVectorStore(client=..., collection_name=..., ...)` | Local Disk (`path="./qdrant_db"`) or Cloud (`url=...`) | `add_documents()` / `add_texts()` | `filter={"field": "value"}` or native `models.Filter` |
 
-#### ⚙️ Retriever Search Types & Parameters:
+**Retriever Search Types & Parameters:**
 
-1. **Standard Similarity Search (`search_type="similarity"`)**:
+1. **Standard Similarity Search (`search_type="similarity"`):**
    ```python
    retriever = vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": 4})
    ```
+
 2. **Maximal Marginal Relevance (`search_type="mmr"`)** — Balances relevance with diversity to reduce redundancy:
    ```python
    retriever = vectorstore.as_retriever(
@@ -2008,7 +2012,8 @@ LangChain provides a unified interface across all vector stores. Any vector stor
        search_kwargs={"k": 3, "fetch_k": 10, "lambda_mult": 0.7}
    )
    ```
-3. **Similarity Score Threshold (`search_type="similarity_score_threshold"`)** — Only returns documents with similarity score above cutoff:
+
+3. **Similarity Score Threshold (`search_type="similarity_score_threshold"`)** — Returns only documents above a similarity cutoff:
    ```python
    retriever = vectorstore.as_retriever(
        search_type="similarity_score_threshold",
@@ -2020,320 +2025,271 @@ LangChain provides a unified interface across all vector stores. Any vector stor
 
 </details>
 
+---
 
-<details><summary><a id="topic-9-query-expansion" name="topic-9-query-expansion"></a>Phase 5: Query Expansion Technique — Needed to generate query variations and synonyms to catch documents using different phrasing</summary>
+<details><summary><a id="topic-9-query-expansion" name="topic-9-query-expansion"></a>Phase 5.1 — Query Expansion: Generating Synonyms & Variants to Improve Retrieval</summary>
 
- **Query Expansion Technique** 
+## Overview: Query Enhancement
 
+In a RAG pipeline, the quality of the user query directly dictates the context retrieved, which determines the accuracy of the LLM's final answer.
 
-
-## 📌 Overview: Query Enhancement
-
-In a Retrieval-Augmented Generation (**RAG**) pipeline, the quality of the user query directly dictates the context retrieved, which in turn determines the accuracy of the LLM's final response.
-
-> **Query Enhancement / Expansion** is the technique of refining, reformulating, or expanding an initial user query before sending it to the retriever to ensure higher-quality context retrieval.
+> **Query Enhancement / Expansion** — refining, reformulating, or expanding a user query before sending it to the retriever to ensure higher-quality context retrieval.
 
 ---
 
-## 🎯 When to Use Query Expansion
+## When to Use Query Expansion
 
-* **Short/Under-specified Queries:** When the initial prompt lacks context or depth.
-* **Ambiguous Prompts:** When keywords have multiple potential interpretations.
-* **Broader Scope:** To capture synonyms, related domain concepts, and common spelling variants.
+- **Short / under-specified queries** — the initial prompt lacks context or depth.
+- **Ambiguous prompts** — keywords have multiple potential interpretations.
+- **Broader scope needed** — to capture synonyms, related domain concepts, spelling variants.
 
 ---
 
-## 🔄 Query Expansion Examples
+## Query Expansion Examples
 
 | Original Query | Enhanced Query |
-| --- | --- |
+| :--- | :--- |
 | `"LangChain memory"` | `"LangChain memory modules, conversation memory"` |
 | `"tools in LLM"` | `"LangChain tools, APIs, calculator, agent tools"` |
 | `"retrieval"` | `"vector retrieval, dense search, BM25, MMR"` |
 
 ---
 
-## ⚡ The Chain Reaction
+## The Chain Reaction
 
 $$\text{Better Query} \longrightarrow \text{Better Retrieved Chunks} \longrightarrow \text{Better Grounded LLM Answers}$$
 
 ---
 
-## 🏗️ Query Expansion Workflow / Architecture
+## Workflow / Architecture
 
-1. **Input Query:** The raw user input is received.
-2. **Query Enhancement Step:** An internal LLM with a specific prompt (or chain execution) expands/refines the original query into an enhanced version.
-3. **Retriever:** The enhanced query is sent to the **Vector Store** / Retriever (e.g., using **FAISS** or **Hybrid Search**).
-4. **Top-K Documents:** The retriever returns the initial top $k$ relevant chunks.
-5. **Re-Ranker:** Re-ranks the retrieved top $k$ documents to ensure the most relevant context is prioritized.
-6. **Final LLM Output:** The ordered context is passed to the LLM to generate the final output.
-7.
-8. <img width="611" height="538" alt="image" src="https://github.com/user-attachments/assets/4e5c34d0-9ec2-4a37-a2d8-406faf767fec" />
+1. **Input Query** — Raw user input is received.
+2. **Query Enhancement Step** — An internal LLM with a specific prompt expands/refines the original query.
+3. **Retriever** — The enhanced query is sent to the Vector Store / Retriever (e.g., FAISS or Hybrid Search).
+4. **Top-K Documents** — Retriever returns initial top-k relevant chunks.
+5. **Re-Ranker** — Re-ranks the top-k documents to prioritize the most relevant context.
+6. **Final LLM Output** — Ordered context is passed to the LLM to generate the final answer.
+
+<img width="611" height="538" alt="Query Expansion Architecture" src="https://github.com/user-attachments/assets/4e5c34d0-9ec2-4a37-a2d8-406faf767fec" />
+
 </details>
 
+---
 
-<details><summary><a id="topic-10-query-decomposition" name="topic-10-query-decomposition"></a>Phase 5: Query Decomposition — Needed to break complex, multi-part questions into simpler sub-queries for targeted multi-step retrieval</summary>
-  
- **Query Decomposition** 
+<details><summary><a id="topic-10-query-decomposition" name="topic-10-query-decomposition"></a>Phase 5.2 — Query Decomposition: Breaking Complex Questions into Targeted Sub-Queries</summary>
+
+## What is Query Decomposition?
+
+**Query Decomposition** takes a complex, multi-part user question and breaks it down into simpler, atomic sub-questions that can be retrieved and answered individually.
 
 ---
 
-## 📌 Query Enhancement: Query Decomposition
+## Why Use Query Decomposition?
 
-### 1. What is Query Decomposition?
-
-**Query Decomposition** is the technique of taking a complex, multi-part user question and breaking it down into simpler, atomic sub-questions that can be retrieved and answered individually.
-
----
-
-### 2. Why Use Query Decomposition?
-
-* **Handles Multi-Concept Queries:** Complex user requests often combine multiple topics that a single retrieval step might miss.
-* **Improves Retrieval Accuracy:** LLMs or standard retrievers can overlook parts of a long or dense prompt.
-* **Enables Multi-Hop Reasoning:** Allows answering complex questions step-by-step.
-* **Supports Parallel Processing:** Sub-questions can be processed in parallel across multiple retrievers or agents (especially within multi-agent frameworks).
+- **Handles multi-concept queries** — complex requests combine multiple topics that a single retrieval step might miss.
+- **Improves retrieval accuracy** — LLMs or standard retrievers can overlook parts of a long/dense prompt.
+- **Enables multi-hop reasoning** — answers complex questions step-by-step.
+- **Supports parallel processing** — sub-questions can be processed in parallel across multiple retrievers or agents.
 
 ---
 
-### 3. How It Works (Workflow Breakdown)
+## How It Works
 
-1. **User Query Input:** A complex query is received (e.g., *"What memory modules does LangChain support and how are they different from CrewAI Agents?"*).
-2. **Decomposition Layer:**
-* Uses **LLM + Prompting** or **Regex / Rule-based Operations** to split the main query into smaller sub-queries:
-* **Sub-Query 1:** *What memory modules does LangChain support?*
-* **Sub-Query 2:** *What memory modules/agents does CrewAI support?*
-* **Sub-Query 3:** *LangChain memory vs. CrewAI agents.*
+1. **User Query Input** — A complex query is received (e.g., *"What memory modules does LangChain support and how are they different from CrewAI Agents?"*).
 
+2. **Decomposition Layer** — Uses LLM + Prompting or regex/rule-based operations to split into sub-queries:
+   - Sub-Query 1: *"What memory modules does LangChain support?"*
+   - Sub-Query 2: *"What memory modules/agents does CrewAI support?"*
+   - Sub-Query 3: *"LangChain memory vs. CrewAI agents."*
 
+3. **Retrieval & LLM Calls (Parallel/Sequential)** — Each sub-query goes to a Retriever for Top-K Context, then to an LLM to generate sub-answers (O1, O2, O3).
 
-
-3. **Retrieval & LLM Calls (Parallel/Sequential):**
-* Each sub-query goes to a **Retriever** to gather relevant context (**Top-K Context**).
-* Each context + prompt is passed to an **LLM** to generate sub-answers ($O_1, O_2, O_3$).
-
-
-4. **Answer Synthesis:**
-* An **Answer Combiner / Synthesizer** merges $O_1, O_2,$ and $O_3$ into a single, cohesive **Final Answer**.
-
-
+4. **Answer Synthesis** — An Answer Combiner merges O1, O2, O3 into a single, cohesive Final Answer.
 
 ---
 
-### 4. Major Disadvantage ⚠️
+## Major Disadvantage
 
-* **Increased Latency & Cost:** Performing multiple retrieval steps and several LLM calls per user request significantly increases processing time and API token usage.
-  <img width="638" height="545" alt="image" src="https://github.com/user-attachments/assets/d07990de-cf22-4c1d-9f33-b03ef3513c14" />
-  
+**Increased Latency & Cost** — Multiple retrieval steps and several LLM calls per user request significantly increases processing time and API token usage.
+
+<img width="638" height="545" alt="Query Decomposition Architecture" src="https://github.com/user-attachments/assets/d07990de-cf22-4c1d-9f33-b03ef3513c14" />
+
 </details>
 
+---
 
-<details><summary><a id="topic-11-hyde" name="topic-11-hyde"></a>Phase 5: HyDE (Hypothetical Document Embeddings) — Needed to bridge vocabulary gaps in short/vague queries by embedding LLM-generated hypothetical answers</summary>
-**Hypothetical Document Embeddings (HyDE)** :
+<details><summary><a id="topic-11-hyde" name="topic-11-hyde"></a>Phase 5.3 — HyDE: Hypothetical Document Embeddings</summary>
+
+## What is HyDE?
+
+**HyDE (Hypothetical Document Embeddings)** is an advanced RAG technique. Instead of embedding a user's raw query directly, HyDE uses an LLM to first generate a **hypothetical answer (document)**, then embeds that generated document to search the vector database.
+
+**Core Goal:** Bridge the semantic gap between how users ask questions and how information is phrased in source documents.
 
 ---
 
-# Study Notes: Hypothetical Document Embeddings (HyDE)
+## When to Use HyDE
 
-## 1. What is HyDE?
-
-**HyDE (Hypothetical Document Embeddings)** is an advanced retrieval-augmented generation (RAG) technique. Instead of embedding a user's raw query directly into a vector space, HyDE uses an LLM to first generate a **hypothetical answer (document)**, and then embeds that generated document to search the vector database.
-
-* **Core Goal:** Bridge the semantic gap between how users ask questions and how information is phrased in source documents.
+- **Short queries** — user input lacks rich context or detail.
+- **Language/phrasing mismatch** — the vocabulary in the question differs from the target documents.
+- **Answer-centric retrieval** — you need to retrieve content based on what an *answer* looks like, not matching question keywords.
 
 ---
 
-## 2. When to Use HyDE
-
-HyDE is especially useful when:
-
-* **Short Queries:** The user's input lacks rich context or detail.
-* **Language/Phrasing Mismatch:** The vocabulary in the question differs significantly from the phrasing in the target documents.
-* **Answer-Centric Retrieval:** You need to retrieve content based on what an **answer** looks like rather than matching question keywords.
-
----
-
-## 3. How HyDE Works (Workflow)
+## How HyDE Works
 
 ```text
 [ User Query ] ──► [ LLM ] ──► [ Hypothetical Answer ] ──► [ Embedding Model ]
                                                                    │
 [ Final Output ] ◄── [ LLM ] ◄── [ Top-K Docs ] ◄── [ Vector Retriever ]
-
 ```
 
-1. **Query Input:** User provides a query.
-2. **Hypothetical Generation:** An LLM generates a plausible (hypothetical) response to the query.
-3. **Vector Embedding:** The hypothetical response is converted into a vector embedding.
-4. **Retrieval:** The vector database retrieves the **Top-K** actual documents matching the hypothetical embedding.
-5. **RAG Completion:** The retrieved ground-truth documents are passed to the LLM to form the final accurate answer.
+1. **Query Input** — User provides a query.
+2. **Hypothetical Generation** — An LLM generates a plausible (hypothetical) response.
+3. **Vector Embedding** — The hypothetical response is converted into a vector embedding.
+4. **Retrieval** — The vector DB retrieves the Top-K actual documents matching the hypothetical embedding.
+5. **RAG Completion** — Retrieved ground-truth documents are passed to the LLM for the final accurate answer.
 
 ---
 
-## 4. Problem vs. Solution & Key Benefits
+## Problem vs. Solution
 
-| Feature / Problem | How HyDE Helps |
-| --- | --- |
-| **Vocabulary Mismatch** | Embeds answer-style structure rather than search keywords. |
-| **Vague Queries** | LLM-generated hypothetical content adds rich semantic context. |
-| **Target Representation** | Models what a relevant document is likely to look like. |
-| **Zero-Shot Retrieval** | Delivers strong retrieval performance without task-specific retraining. |
-| **Plug-and-Play** | Easy to integrate with existing providers (e.g., OpenAI, Cohere, Hugging Face). |
-<img width="515" height="231" alt="image" src="https://github.com/user-attachments/assets/26307b0f-6aa7-4595-a621-41db55476ab7" />
+| Problem | How HyDE Helps |
+| :--- | :--- |
+| **Vocabulary Mismatch** | Embeds answer-style structure rather than search keywords |
+| **Vague Queries** | LLM-generated hypothetical content adds rich semantic context |
+| **Target Representation** | Models what a relevant document is likely to look like |
+| **Zero-Shot Retrieval** | Strong retrieval performance without task-specific retraining |
+| **Plug-and-Play** | Easy to integrate with existing providers (OpenAI, Cohere, HuggingFace) |
+
+<img width="515" height="231" alt="HyDE Architecture" src="https://github.com/user-attachments/assets/26307b0f-6aa7-4595-a621-41db55476ab7" />
 
 </details>
 
+---
 
-<details><summary><a id="topic-6-hybrid-search" name="topic-6-hybrid-search"></a>Phase 6: Dense + Sparse Retrieval (Hybrid Search) — Needed to combine keyword accuracy (BM25) with semantic intent (Embeddings) for robust search</summary>
-
+<details><summary><a id="topic-6-hybrid-search" name="topic-6-hybrid-search"></a>Phase 6.1 — Hybrid Search: Dense + Sparse Retrieval</summary>
 
 ## Hybrid Search Strategies: Dense & Sparse Retrieval
 
-**Hybrid Retrieval** combines both dense and sparse scoring methods (e.g., using a weighted sum or learning-to-rank methods) to improve search recall and relevance. By combining these, you get the "best of both worlds": the semantic, context-aware power of vector embeddings and the precise, exact-match capabilities of keywords.
+**Hybrid Retrieval** combines dense and sparse scoring methods to improve search recall and relevance — "best of both worlds": semantic understanding from vector embeddings + precise keyword matching.
 
 ---
 
 ### 1. Sparse Retrieval (Exact Keyword Search)
 
-Sparse retrieval focuses on finding exact word matches between the query and the documents.
+Finds exact word matches between the query and documents.
 
-* **How it works:** It converts text into a sparse matrix representing word occurrences.
-* **Techniques used:** Bag-of-Words (BoW), TF-IDF, and BM25.
-* **Best for:** Exact keyword searches (e.g., searching for a specific name, ID, or unique term).
+- **How it works:** Converts text into a sparse matrix representing word occurrences.
+- **Techniques:** Bag-of-Words (BoW), TF-IDF, BM25.
+- **Best for:** Exact keyword searches (specific names, IDs, unique terms).
 
 ### 2. Dense Retrieval (Semantic Search)
 
-Dense retrieval focuses on the underlying *meaning* and context of the query rather than just exact word matches.
+Focuses on the underlying *meaning* and context, not just exact word matches.
 
-* **How it works:** It uses Vector Embeddings to map text into a high-dimensional vector space. It finds matches by calculating the similarity between the query vector and document vectors.
-* **Techniques used:** Cosine Similarity.
-* **Common Tools:** Vector databases like FAISS and ChromaDB.
-* **Best for:** Semantic meaning (e.g., knowing that "building apps" and "developing software" mean similar things).
+- **How it works:** Uses Vector Embeddings to map text into high-dimensional vector space. Finds matches by calculating cosine similarity between query and document vectors.
+- **Common tools:** FAISS, ChromaDB.
+- **Best for:** Semantic meaning (knowing "building apps" and "developing software" mean similar things).
 
 ---
 
 ### The Hybrid Search Formula
 
-Hybrid search calculates a final score by combining the dense and sparse scores using a specific weightage ($\alpha$).
+Combines dense and sparse scores using a weighting factor (alpha):
 
-**The Equation:**
+<img width="473" height="52" alt="Hybrid Search Formula" src="https://github.com/user-attachments/assets/c6907f64-3fb2-494b-81c6-e3effa9d8ab7" />
 
-
-<img width="473" height="52" alt="image" src="https://github.com/user-attachments/assets/c6907f64-3fb2-494b-81c6-e3effa9d8ab7" />
-
-
-**Where:**
-
-* $\text{Score}_{\text{dense}}$ is calculated using Cosine Similarity between the input and the vector store.
-* $\text{Score}_{\text{sparse}}$ is calculated using techniques like TF-IDF.
-* $\alpha$ is the weightage (often set to $0.5$ for an equal balance).
+- **Score_dense** — calculated using Cosine Similarity vs. the vector store.
+- **Score_sparse** — calculated using TF-IDF.
+- **alpha** — the weighting (often 0.5 for equal balance).
 
 ---
 
 ### Practical Example
 
 **Documents in Database:**
+- D1: "LangChain helps build LLM apps"
+- D2: "Pinecone is used for vector search"
+- D3: "Eiffel Tower is in Paris"
 
-* **D1:** "LangChain helps build LLM apps"
-* **D2:** "Pinecone is used for vector search"
-* **D3:** "Eiffel Tower is in Paris"
+**User Query:** "build application using LLM" | **Alpha:** 0.5
 
-**User Query:** "build application using LLM"
-**Weightage ($\alpha$):** 0.5
+| Document | Dense Score | Sparse Score | Hybrid Score |
+| :--- | :--- | :--- | :--- |
+| D1 | 0.85 | 0.60 | `(0.5 × 0.85) + (0.5 × 0.60)` = **0.725** |
+| D2 | 0.40 | 0.20 | `(0.5 × 0.40) + (0.5 × 0.20)` = **0.30** |
+| D3 | 0.10 | 0.10 | `(0.5 × 0.10) + (0.5 × 0.10)` = **0.10** |
 
-*(Assuming hypothetical individual scores for demonstration)*
-
-* **D1 Calculation:**
-* Dense Score = 0.85, Sparse Score = 0.60
-* $\text{D1 Score} = (0.5 \times 0.85) + (0.5 \times 0.60) = 0.725$
-
-
-* **D2 Calculation:**
-* Dense Score = 0.40, Sparse Score = 0.20
-* $\text{D2 Score} = (0.5 \times 0.40) + (0.5 \times 0.20) = 0.30$
-
-
-* **D3 Calculation:**
-* Dense Score = 0.10, Sparse Score = 0.10
-* $\text{D3 Score} = (0.5 \times 0.10) + (0.5 \times 0.10) = 0.10$
-
-
-
-**Result:** D1 has the highest hybrid score, making it the most relevant document returned for the query.
-</details>
-
-
-<details><summary><a id="topic-7-reranking" name="topic-7-reranking"></a>Phase 6: Reranking — Needed to re-order initial retrieved documents using cross-encoders to improve precision and eliminate false positives</summary>
-## Study Notes: Hybrid Search Strategies & Re-Ranking Techniques
-<img width="537" height="641" alt="image" src="https://github.com/user-attachments/assets/68528d95-1e6b-41b5-86c4-ad2136e86cb0" />
-
-
-### 1. Overview of Re-Ranking
-
-* **Definition:** Re-ranking is a **second-stage filtering process** used in retrieval systems, particularly within Retrieval-Augmented Generation (RAG) pipelines.
-* **Core Objective:** To refine and re-order an initial set of retrieved document chunks so that the most relevant contextual evidence appears at the top before being sent to the LLM.
-
----
-
-### 2. RAG Pipeline Stages & Architecture
-
-The workflow is divided into three distinct stages:
-
-1. **Stage 1: Retrieval (Fast, Broad Retrieval)**
-* **Exact Match Retrieval:** Uses algorithms like **BM25** to find literal keyword matches.
-* **Semantic Search:** Uses vector store embeddings (e.g., **FAISS**) to match documents by semantic similarity.
-* **Hybrid Search:** Combines results from both exact keyword search and vector similarity search to produce an initial `top-k` set of candidate chunks.
-
-
-2. **Stage 2: Re-Ranking (Accurate, Deep Re-Scoring)**
-* Takes the `top-k` candidates from Stage 1.
-* Uses a slower but significantly more accurate model—such as a **Cross-Encoder** or an **LLM**—to evaluate the full query-document pair.
-* Re-scores and reorders the chunks to select only the highest-quality relevant context.
-
-
-3. **Stage 3: Generation**
-* Feeds the user prompt alongside the top re-ranked relevant chunks into the LLM to generate the final response.
-
-
-
----
-
-### 3. Why Use Re-Rankers in a RAG Pipeline?
-
-| Factor / Strategy | Without Re-Ranker | With Re-Ranker |
-| --- | --- | --- |
-| **1. Relevance of Context** | `Top-k` documents may only be loosely or partially related. | `Top-k` documents are re-scored and reordered for maximum relevance. |
-| **2. Factual Accuracy** | LLMs are prone to hallucinations if low-quality context is retrieved. | Irrelevant documents are filtered out, resulting in grounded, factual answers. |
-| **3. Handling Ambiguity** | First-stage retrievers lack a deep understanding of complex query intent. | Evaluates full query-doc pairs for significantly better intent alignment. |
-| **4. Semantic Matching** | Dense retrievers can miss relevant documents that have low vector similarity scores. | Leverages deeper models (cross-encoders/LLMs) to capture subtle semantic connections. |
-| **5. Keyword vs. Meaning** | Keyword models (like BM25) may favor exact string matches even if contextually unhelpful. | Effectively balances lexical (keyword) and semantic (meaning) relevance. |
-| **6. Evidence Prioritization** | All retrieved documents are treated with equal importance. | The highest-quality evidence is dynamically floated to the top. |
-| **7. Long-Tail Queries** | Weak retrievers struggle to locate matches for rare or niche queries. | Better captures rare, long-tail, but highly meaningful matches. |
-| **8. LLM Efficiency** | Irrelevant context causes LLMs to yield verbose, unfocused, or incorrect output. | High-precision context improves generation speed, conciseness, and accuracy. |
-| **9. Noise Reduction** | Unrelated content (e.g., ads, boilerplate text) can slip into the prompt. | Pushes noisy content to the bottom or filters it out entirely. |
-| **10. Flexible Scoring** | Constrained to fixed retriever scoring rules. | Allows custom scoring strategies incorporating metadata, recency, or user preferences. |
-
----
-
-### 4. Summary Takeaway
-
-> **First-stage retrievers** prioritize **speed** over precision to fetch candidate chunks from large databases. **Second-stage re-rankers** trade speed for **accuracy** by evaluating candidate chunks through a deeper neural network, ensuring the LLM context window receives only clean, prioritized, and highly factual information.
-
+**Result:** D1 has the highest hybrid score — most relevant document returned.
 
 </details>
 
+---
 
-<details><summary><a id="topic-8-mmr" name="topic-8-mmr"></a>Phase 6: MMR (Maximal Marginal Relevance) — Needed to balance document relevance with diversity and prevent retrieving duplicate context</summary>
+<details><summary><a id="topic-7-reranking" name="topic-7-reranking"></a>Phase 6.2 — Re-ranking: Cross-Encoder Precision Scoring</summary>
 
+## Study Notes: Re-Ranking Techniques
 
+<img width="537" height="641" alt="Re-ranking diagram" src="https://github.com/user-attachments/assets/68528d95-1e6b-41b5-86c4-ad2136e86cb0" />
 
-# Hybrid Search Strategies: Maximal Marginal Relevance (MMR)
+### Overview of Re-Ranking
+
+**Definition:** Re-ranking is a **second-stage filtering process** in RAG pipelines.
+
+**Core Objective:** Refine and re-order an initial set of retrieved document chunks so that the most relevant context appears at the top before being sent to the LLM.
+
+---
+
+### RAG Pipeline with Re-Ranking (3 Stages)
+
+**Stage 1 — Retrieval (Fast, Broad)**
+- Exact Match: BM25 keyword matching.
+- Semantic Search: Vector store embeddings (FAISS).
+- Hybrid Search: Combines both to produce initial top-k candidates.
+
+**Stage 2 — Re-Ranking (Accurate, Deep Re-Scoring)**
+- Takes top-k candidates from Stage 1.
+- Uses a slower but significantly more accurate model (Cross-Encoder or LLM) to evaluate full query-document pairs.
+- Re-scores and reorders chunks to select the highest-quality relevant context.
+
+**Stage 3 — Generation**
+- User prompt + top re-ranked chunks → LLM → final response.
+
+---
+
+### Why Use Re-Rankers?
+
+| Factor | Without Re-Ranker | With Re-Ranker |
+| :--- | :--- | :--- |
+| **Relevance of Context** | Top-k may be loosely related | Top-k re-scored for maximum relevance |
+| **Factual Accuracy** | LLMs prone to hallucinations from low-quality context | Irrelevant docs filtered out → grounded answers |
+| **Handling Ambiguity** | First-stage retrievers lack deep intent understanding | Evaluates full query-doc pairs for better alignment |
+| **Semantic Matching** | Dense retrievers can miss docs with low vector similarity | Cross-encoders capture subtle semantic connections |
+| **Keyword vs. Meaning** | BM25 may favor exact matches even if unhelpful | Balances lexical and semantic relevance |
+| **Evidence Prioritization** | All retrieved docs treated equally | Highest-quality evidence floated to top |
+| **Long-Tail Queries** | Weak retrievers struggle with rare queries | Better captures rare but meaningful matches |
+| **LLM Efficiency** | Irrelevant context causes verbose/incorrect output | High-precision context improves speed & accuracy |
+| **Noise Reduction** | Unrelated content (ads, boilerplate) can slip into prompt | Noisy content pushed to bottom or filtered |
+| **Flexible Scoring** | Constrained to fixed retriever rules | Custom scoring incorporating metadata, recency, preferences |
+
+---
+
+### Summary Takeaway
+
+> **First-stage retrievers** prioritize **speed** to fetch candidate chunks from large databases. **Second-stage re-rankers** trade speed for **accuracy** by evaluating candidates through a deeper neural network — ensuring the LLM context window receives only clean, prioritized, highly factual information.
+
+</details>
+
+---
+
+<details><summary><a id="topic-8-mmr" name="topic-8-mmr"></a>Phase 6.3 — MMR: Maximal Marginal Relevance</summary>
 
 ## What is MMR?
 
-**Maximal Marginal Relevance (MMR)** is a powerful, diversity-aware retrieval technique used primarily in information retrieval and Retrieval-Augmented Generation (RAG) pipelines.
+**Maximal Marginal Relevance (MMR)** is a diversity-aware retrieval technique used in RAG pipelines.
 
-**Aim:** Its primary goal is to balance **relevance** and **novelty**. It prevents the retriever from returning highly similar documents that repeat the same content. MMR ensures selected documents are both:
-
+**Aim:** Balance **relevance** and **novelty** — prevent returning highly similar documents that repeat the same content. Ensures selected documents are both:
 1. Relevant to the user's query.
 2. Diverse from one another (non-redundant).
 
@@ -2341,86 +2297,74 @@ The workflow is divided into three distinct stages:
 
 ## The MMR Formula
 
-The algorithm evaluates a candidate document's relevance against the query while penalizing it for similarity to documents that have already been selected.
-
 $$\text{MMR}(d) = \lambda \cdot \text{sim}(d, q) - (1 - \lambda) \cdot \max_{s \in S} \text{sim}(d, s)$$
 
-### Key Parameters:
-
-* $q$: The user query.
-* $d$: A candidate document from the document set $D$.
-* $S$: The set of documents that have *already* been selected.
-* $\text{sim}(a, b)$: The similarity function being used (e.g., Cosine Similarity).
-* $\lambda$ (Lambda): A tunable parameter between $0$ and $1$.
-* A higher $\lambda$ prioritizes **relevance** to the query.
-* A lower $\lambda$ prioritizes **diversity** among documents.
-
-
+**Parameters:**
+- $q$ — the user query
+- $d$ — a candidate document from set $D$
+- $S$ — the set of documents already selected
+- $\text{sim}(a, b)$ — the similarity function (e.g., Cosine Similarity)
+- $\lambda$ (Lambda) — tunable between 0 and 1:
+  - Higher $\lambda$ → prioritizes **relevance** to the query
+  - Lower $\lambda$ → prioritizes **diversity** among documents
 
 ---
 
 ## Step-by-Step Example
 
-Imagine we have three candidate documents (D1, D2, D3) and we want to select the top 2 documents using MMR.
+Three candidates (D1, D2, D3), selecting top 2 using MMR.
 
-**1. Initial Query Relevance (Cosine Similarity)**
+**Initial Query Relevance (Cosine Similarity):**
+- sim(D1, Q) = 0.95
+- sim(D2, Q) = 0.93
+- sim(D3, Q) = 0.80
 
-* $\text{sim}(D1, Q) = 0.95$
-* $\text{sim}(D2, Q) = 0.93$
-* $\text{sim}(D3, Q) = 0.80$
+**Step 1:** Pick D1 first — highest raw similarity score (0.95).
 
-**Step 1:** We pick **D1** first because it has the highest raw similarity score (0.95).
+**Calculating Diversity (Similarity to D1):**
+- sim(D1, D2) = 0.90 — Highly redundant
+- sim(D1, D3) = 0.30 — Highly diverse
 
-**2. Calculating Diversity (Similarity to Selected Doc D1)**
+**Step 2:** Calculate MMR for remaining candidates with lambda = 0.7:
 
-* $\text{sim}(D1, D2) = 0.90$ (Highly redundant)
-* $\text{sim}(D1, D3) = 0.30$ (Highly diverse)
+$$\text{MMR}(D2) = (0.7 \times 0.93) - (0.3 \times 0.90) = 0.651 - 0.270 = \mathbf{0.381}$$
 
-**Step 2:** Select the second document using the MMR formula. Let's assume $\lambda = 0.7$.
+$$\text{MMR}(D3) = (0.7 \times 0.80) - (0.3 \times 0.30) = 0.560 - 0.090 = \mathbf{0.470}$$
 
-* **For D2:**
+**Result:** Even though D2 is more relevant (0.93 vs 0.80), **D3 is selected** as the second document.
 
-$$\text{MMR}(D2) = (0.7 \cdot 0.93) - (0.3 \cdot 0.90) = 0.651 - 0.270 = \mathbf{0.381}$$
+**Final Rank: 1. D1 | 2. D3**
 
-
-* **For D3:**
-
-$$\text{MMR}(D3) = (0.7 \cdot 0.80) - (0.3 \cdot 0.30) = 0.560 - 0.090 = \mathbf{0.470}$$
-
-
-
-**Result:** Even though D2 is more relevant to the query than D3 ($0.93$ vs $0.80$), **D3** is selected as the second document.
-
-* **Final Rank:** 1. D1 | 2. D3
-* **Reason:** D3 provides the best balance of diversity and relevance, whereas D2 was too redundant with the information already present in D1.
+**Reason:** D3 provides the best balance of diversity and relevance — D2 was too redundant with D1.
 
 ---
 
-## When to Use vs. When Not to Use MMR
+## When to Use vs. When NOT to Use MMR
 
-| Scenario | Details / Reasoning |
-| --- | --- |
-| **When to Use MMR** |  |
-| **RAG Pipelines** | Avoids feeding Large Language Models (LLMs) redundant documents, leading to richer, more useful context. |
-| **Chatbots & Search Apps** | Great for FAQs, document browsers, and applications where a broad coverage of an answer is needed. |
-| **Hybrid Retrieval** | Works well when combining Dense + Sparse search strategies. |
-| **When NOT to Use MMR** |  |
-| **Extremely Short Context** | If you only have room for (or only want) the single top-1 most relevant document. |
-| **Precision Only** | When you are strictly focused on accuracy and do not care about topic coverage. |
-| **Pre-existing Diversity** | If the source documents are already inherently diverse. |
-| **LLM Reranking** | If redundancy is already being handled downstream by an LLM post-filter or reranker. |
+| Scenario | Details |
+| :--- | :--- |
+| **Use — RAG Pipelines** | Avoids feeding LLMs redundant documents → richer, more useful context |
+| **Use — Chatbots & Search Apps** | Great for FAQs, document browsers needing broad topic coverage |
+| **Use — Hybrid Retrieval** | Works well combining Dense + Sparse search strategies |
+| **Skip — Extremely Short Context** | If you only want the single top-1 most relevant document |
+| **Skip — Precision Only** | When focused strictly on accuracy, not topic coverage |
+| **Skip — Pre-existing Diversity** | If source documents are already inherently diverse |
+| **Skip — LLM Reranking** | If redundancy is already handled downstream by an LLM post-filter |
+
 </details>
 
+---
 
-<details><summary><a id="topic-7-rag-chains" name="topic-7-rag-chains"></a>Phase 7: RAG Chain Construction, Conversational Memory & format_docs Decision Framework — Needed for LCEL orchestration, history-aware retrieval & doc formatting</summary>
+<details><summary><a id="topic-7-rag-chains" name="topic-7-rag-chains"></a>Phase 7 — RAG Chain Construction, Conversational Memory & format_docs Guide</summary>
 
-# Phase 7: RAG Chain Construction & Conversational Memory Pipelines
+# Phase 7: RAG Chain Construction & Conversational Memory
 
-This module provides the core architectural patterns for connecting retrievers (Vector DBs) to Large Language Models (LLMs), managing multi-turn conversational chat history, and mastering the crucial architectural decision of when to use `format_docs`.
+This module covers the core architectural patterns for connecting retrievers (Vector DBs) to LLMs, managing multi-turn conversational chat history, and the crucial decision of when to use `format_docs`.
 
 ---
 
-#### 🚀 Step 6: Converting to Retriever & Building RAG Chains <a id="chroma-rag-chains"></a>
+### Step 1 — Convert Retriever & Build LCEL RAG Chain <a id="chroma-rag-chains"></a>
+
 ```python
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
@@ -2433,7 +2377,7 @@ retriever = vectorstore.as_retriever(
     search_kwargs={"k": 3}
 )
 
-# 2. Format helper
+# 2. Format helper — converts List[Document] to string
 def format_docs(docs):
     return "\n\n".join(doc.page_content for doc in docs)
 
@@ -2465,14 +2409,18 @@ response = rag_chain.invoke("What is reinforcement learning?")
 print("RAG Response:\n", response)
 ```
 
-#### 🧠 Step 7: Advanced Conversational RAG with Chat History
+---
+
+### Step 2 — Advanced Conversational RAG with Chat History
+
 ```python
 from langchain_core.prompts import MessagesPlaceholder
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain.chains import create_history_aware_retriever, create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 
-# 1. Contextualize Question Prompt (Re-writes user question considering history)
+# 1. Contextualize Question Prompt
+# Re-writes the user's question in the context of the conversation history
 contextualize_q_system_prompt = """Given a chat history and the latest user question \
 which might reference context in the chat history, formulate a standalone question \
 which can be understood without the chat history. Do NOT answer the question, \
@@ -2517,18 +2465,18 @@ res2 = rag_conversational_chain.invoke({"input": q2, "chat_history": chat_histor
 print("Turn 2 Answer:", res2["answer"])
 ```
 
-
 ---
 
 <details open id="format-docs-deep-dive">
-<summary><a id="format-docs-deep-dive" name="format-docs-deep-dive"></a><b>🎯 LangChain format_docs Deep-Dive: When to Use vs. When NOT to Use</b></summary>
+<summary><a id="format-docs-deep-dive" name="format-docs-deep-dive"></a><b>Phase 7.1 — format_docs Deep-Dive: When to Use vs. When NOT to Use</b></summary>
 
-In LangChain, deciding whether you need a `format_docs` helper depends entirely on **how your chain is constructed**:
+Whether you need a `format_docs` helper depends entirely on **how your chain is constructed**.
 
 ---
 
-### 1. **When to USE `format_docs`** 
-👉 **When building custom LCEL (LangChain Expression Language) chains directly.**
+### When to USE `format_docs`
+
+**When building custom LCEL chains directly.**
 
 ```python
 # Pure LCEL Pipeline
@@ -2540,23 +2488,25 @@ rag_chain = (
 )
 ```
 
-#### Why it's needed here:
+**Why it's needed here:**
 - `retriever` returns a Python list of `Document` objects (`List[Document]`).
 - A standard `ChatPromptTemplate` expects a **string** for `{context}`.
-- If you pass `List[Document]` directly without `format_docs`, the prompt will receive the raw Python object representation (e.g. `[Document(page_content='...'), ...]`), wasting tokens and confusing the LLM.
-- **You also use `format_docs` when you want custom formatting**, such as injecting metadata/source attribution into the context:
-  ```python
-  def format_docs_with_sources(docs):
-      return "\n\n".join(
-          f"Source: {doc.metadata.get('source', 'Unknown')} (Page {doc.metadata.get('page', 'N/A')}):\n{doc.page_content}"
-          for doc in docs
-      )
-  ```
+- Passing `List[Document]` directly without `format_docs` gives the prompt the raw Python object representation (e.g., `[Document(page_content='...'), ...]`) — wastes tokens and confuses the LLM.
+- Use it also when you want **custom formatting** with metadata/source attribution:
+
+```python
+def format_docs_with_sources(docs):
+    return "\n\n".join(
+        f"Source: {doc.metadata.get('source', 'Unknown')} (Page {doc.metadata.get('page', 'N/A')}):\n{doc.page_content}"
+        for doc in docs
+    )
+```
 
 ---
 
-### 2. **When NOT to use `format_docs`**
-👉 **When using LangChain’s pre-built helper chains like `create_stuff_documents_chain` and `create_retrieval_chain`.**
+### When NOT to use `format_docs`
+
+**When using LangChain's pre-built helper chains: `create_stuff_documents_chain` and `create_retrieval_chain`.**
 
 ```python
 # Built-in LangChain Helpers
@@ -2564,126 +2514,110 @@ question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
 rag_conversational_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
 ```
 
-#### Why you don't need it here:
-- `create_stuff_documents_chain` is built specifically to accept `List[Document]` as its input.
-- **It formats documents internally** using its default document template (`{page_content}`) and joins them with `\n\n`.
-- `create_retrieval_chain` passes the raw `docs` into `create_stuff_documents_chain`, and also preserves the original `List[Document]` in the final output dictionary (`response["context"]`), allowing you to inspect sources, scores, or metadata later.
-- If you manually pass a pre-formatted string instead of `List[Document]` to `create_stuff_documents_chain`, it will fail because it expects document objects.
+**Why you don't need it here:**
+- `create_stuff_documents_chain` is built specifically to accept `List[Document]` as input.
+- It **formats documents internally** using its default document template (`{page_content}`) and joins with `\n\n`.
+- `create_retrieval_chain` passes raw `docs` into `create_stuff_documents_chain` and preserves the original `List[Document]` in the output dict (`response["context"]`) for source inspection.
+- If you manually pass a pre-formatted string instead of `List[Document]`, it will fail — it expects document objects.
 
 ---
 
-### Quick Comparison Summary
+### Quick Comparison
 
 | Feature | LCEL Chain (`retriever \| format_docs \| prompt`) | Pre-built Chain (`create_stuff_documents_chain`) |
 | :--- | :--- | :--- |
-| **`format_docs` required?** | **Yes** (Must convert `List[Document]` $\rightarrow$ `str`) | **No** (Handles formatting internally) |
-| **Input to `{context}` in prompt** | Plain String | Raw `List[Document]` handled under the hood |
+| **`format_docs` required?** | **Yes** — must convert `List[Document]` to `str` | **No** — handles formatting internally |
+| **Input to `{context}` in prompt** | Plain string | Raw `List[Document]` handled under the hood |
 | **Final Output** | Typically just the string response | Dictionary containing `answer` + raw `context` docs |
-| **Custom formatting** | Handled in your Python function | Configured via `document_prompt` & `document_separator` |
-| **Best suited for** | Lightweight, fully customized, streaming LCEL pipelines | Standard RAG, multi-turn chat history, and source tracking |
+| **Custom formatting** | In your Python function | Via `document_prompt` & `document_separator` |
+| **Best suited for** | Lightweight, fully customized, streaming pipelines | Standard RAG, multi-turn chat history, source tracking |
 
 </details>
 
 </details>
-
-
-<details><summary><a id="topic-3-finetuning-vs-rag" name="topic-3-finetuning-vs-rag"></a>Phase 8: Fine-Tuning vs. RAG — Needed to decide between adapting LLM style/tone (Fine-Tuning) vs. injecting dynamic external knowledge (RAG)</summary>
-
 
 ---
 
-# AI Customization Methods: A Beginner's Guide
+<details><summary><a id="topic-3-finetuning-vs-rag" name="topic-3-finetuning-vs-rag"></a>Phase 8 — Fine-Tuning vs. RAG: Strategic Customization Framework</summary>
 
-A comparison of the three primary ways to customize Large Language Models (LLMs): Prompt Engineering, Fine-tuning, and RAG.
+# AI Customization Methods: A Comparison Guide
+
+Three primary ways to customize Large Language Models: Prompt Engineering, Fine-Tuning, and RAG.
+
+---
 
 ## 1. Prompt Engineering
 
-**Concept:** Teaching through instructions. The underlying AI model itself remains completely unchanged.
+**Concept:** Teaching through instructions. The AI model itself remains completely unchanged.
 
-### 📊 Diagram Flow
-
+**Diagram:**
 ```text
-[User Prompt: "Act as an expert chef..."] 
+[User Prompt: "Act as an expert chef..."]
                     ↓
-        [Base LLM (Remains Unchanged)] 
+        [Base LLM (Remains Unchanged)]
                     ↓
           [Customized Output]
-
 ```
 
-### 📝 Key Details
+**How it works:**
+- Write specific instructions in your prompt.
+- Structure prompts with clear context.
+- Use examples (few-shot learning).
 
-* **How it Works:**
-* Write specific instructions in your prompt.
-* Structure prompts with clear context.
-* Use examples (few-shot learning).
+**Pros:**
+- No technical expertise needed.
+- Instant results, free (no training costs).
+- Highly flexible and works with any LLM.
 
+**Cons:**
+- Limited by the model's existing base knowledge.
+- Inconsistent results possible.
+- Token limits restrict prompt complexity.
+- Cannot add new permanent knowledge to the model.
 
-* **Pros:**
-* No technical expertise needed.
-* Instant results.
-* Free (no training costs).
-* Highly flexible and works with any LLM.
-
-
-* **Cons:**
-* Strictly limited by the model's existing base knowledge.
-* Can yield inconsistent results.
-* Token limits restrict how complex you can make the prompt.
-* Cannot add new, permanent knowledge to the model.
-
-
-* **Best For:** Quick prototyping, small-scale applications, general-purpose tasks, and when you need maximum flexibility.
+**Best for:** Quick prototyping, small-scale applications, general-purpose tasks, maximum flexibility.
 
 ---
 
 ## 2. Fine-Tuning
 
-**Concept:** Teaching through training. It alters the model's permanent weights to create a specialized version of the original AI.
+**Concept:** Teaching through training. Alters the model's permanent weights to create a specialized version.
 
-### 📊 Diagram Flow
-
+**Diagram:**
 ```text
 [Base LLM (Original Weights)]  +  [Domain-Specific Training Data]
                                ↓
                             (Train)
                                ↓
         [Fine-Tuned LLM (Modified Weights / Specialized)]
-
 ```
 
-### 📝 Key Details
+**How it works:**
+- Prepare domain-specific training data.
+- Train the base model on your data.
+- Model weights are permanently changed.
 
-* **How it Works:**
-* Prepare domain-specific training data.
-* Train the base model on your data.
-* Model weights are permanently changed to create a specialized version.
+**Pros:**
+- Creates deeply specialized knowledge and consistent behavior.
+- Eliminates complex prompt engineering.
+- Can learn specific writing styles.
+- Better for highly specific domains.
 
+**Cons:**
+- Expensive ($1,000s – $10,000s).
+- Requires ML expertise.
+- Needs complete retraining for any knowledge updates.
+- Can "forget" general knowledge during training.
 
-* **Pros:**
-* Creates deeply specialized knowledge and consistent behavior.
-* Eliminates the need for complex prompt engineering.
-* Can learn specific new writing styles.
-* Significantly better for highly specific domains.
-
-
-* **Cons:**
-* Expensive to execute (can cost $1000s – $10000s).
-* Requires Machine Learning (ML) expertise.
-* Needs complete retraining for any informational updates.
-* The model can sometimes "forget" general knowledge during training.
-
-
-* **Best For:** Highly specific writing styles or tones, domain-specific language, high-volume/consistent tasks, and situations where accuracy is critical.
+**Best for:** Specific writing styles/tones, domain-specific language, high-volume consistent tasks, critical accuracy requirements.
 
 ---
 
 ## 3. RAG (Retrieval-Augmented Generation)
 
-**Concept:** Teaching through retrieval. It pulls in outside information in real-time to help the AI answer a query accurately.
+**Concept:** Teaching through retrieval. Pulls outside information in real-time to help the AI answer accurately.
 
-### 📊 Diagram Flow
-
+**Diagram:**
 ```text
 [User Query] ─────────────> [Vector Database / Knowledge Base]
       ↓                                   ↓
@@ -2692,123 +2626,106 @@ A comparison of the three primary ways to customize Large Language Models (LLMs)
                               [Base LLM]
                                   ↓
                         [Augmented Response]
-
 ```
 
-### 📝 Key Details
+**How it works:**
+- Store documents/data in a Vector Database.
+- Retrieve relevant documents for each specific query.
+- Combine retrieved documents with the query as context.
+- LLM generates an answer based strictly on that context.
 
-* **How it Works:**
-* Store company documents or data in a Vector Database.
-* Retrieve relevant documents for each specific query.
-* Combine the retrieved documents with the query to serve as context.
-* The LLM generates an answer based strictly on that context.
+**Pros:**
+- Always provides up-to-date information.
+- No model training required (cost-effective).
+- Can safely handle private/proprietary data.
+- High accuracy with reduced hallucination.
 
+**Cons:**
+- Requires initial infrastructure setup (Vector DBs).
+- Final result heavily depends on retrieval quality.
+- Context window limitations still apply.
+- Adds latency due to the retrieval step.
 
-* **Pros:**
-* Always provides up-to-date information.
-* Requires no model training (highly cost-effective).
-* Can safely handle private or proprietary data.
-* High accuracy with reduced hallucination.
+**Best for:** Knowledge bases, real-time/frequently updated info, customer support, compliance-heavy industries.
 
+[5-Promptvsfinetunignvsrag.pdf](https://github.com/user-attachments/files/29892064/5-Promptvsfinetunignvsrag.pdf)
 
-* **Cons:**
-* Requires initial infrastructure setup (like Vector DBs).
-* The final result is heavily dependent on the quality of the retrieval step.
-* Context window limitations still apply.
-* Adds latency (delay) to the response time due to the retrieval step.
-
-
-* **Best For:** Knowledge bases and documentation, real-time or frequently updated info, customer support systems, and compliance-heavy industries.
-
-  [5-Promptvsfinetunignvsrag.pdf](https://github.com/user-attachments/files/29892064/5-Promptvsfinetunignvsrag.pdf)
-
-  </details>
-
-
-<details><summary><a id="topic-12-multimodal-ai" name="topic-12-multimodal-ai"></a>Phase 9: Multimodal AI — Needed to process and integrate heterogeneous data formats (text, images, audio, tables) in unified LLM workflows</summary>
-
-
-<img width="692" height="915" alt="image" src="https://github.com/user-attachments/assets/bf8314b0-7b20-41c0-a098-f93f49f12c80" />
-
-# Section 1: Core PDF & Lecture Notes
-
-## 1. Key Concepts & Overview
-
-* **Multimodal RAG:** Integrates both text and visual data into a unified retrieval-augmented pipeline so queries can reference both modalities.
-* **Supported Source Data:** PDFs, Word documents, and Databases.
-* **Multimodal LLM Engine:** Uses vision-capable models (e.g., OpenAI `GPT-4.1`, Google `Gemini 2.5 Flash`) to process combined text and image context to generate final responses.
+</details>
 
 ---
 
-## 2. Core Processing Steps & Pipeline Flow
+<details><summary><a id="topic-12-multimodal-ai" name="topic-12-multimodal-ai"></a>Phase 9 — Multimodal AI & Vision-Native RAG Architecture</summary>
+
+<img width="692" height="915" alt="Multimodal AI Overview" src="https://github.com/user-attachments/assets/bf8314b0-7b20-41c0-a098-f93f49f12c80" />
+
+## Key Concepts & Overview
+
+- **Multimodal RAG** — Integrates both text and visual data into a unified RAG pipeline so queries can reference both modalities.
+- **Supported Source Data** — PDFs, Word documents, Databases.
+- **Multimodal LLM Engine** — Uses vision-capable models (e.g., OpenAI `GPT-4.1`, Google `Gemini 2.5 Flash`) to process combined text and image context.
+
+---
+
+## Core Processing Steps & Pipeline Flow
 
 ```
-[ PDF / Word / Database ] ➔ [ Extract Text & Images ] ➔ [ CLIP Embeddings ] ➔ [ FAISS Vector Store ]
+[ PDF / Word / Database ] → [ Extract Text & Images ] → [ CLIP Embeddings ] → [ FAISS Vector Store ]
                                                                                       │
-[ Multimodal Answer ] ◄── [ Multimodal LLM ] ◄── [ Format Payload ] ◄── [ Top-K Retrieval ] ◄── [ Query ]
+[ Multimodal Answer ] ← [ Multimodal LLM ] ← [ Format Payload ] ← [ Top-K Retrieval ] ← [ Query ]
 ```
 
-1. **Data Extraction:** Raw input documents (PDFs, Word files, databases) are parsed to decouple text content from embedded image files.
+1. **Data Extraction** — Raw input documents are parsed to decouple text from embedded images.
 2. **CLIP Embedding:**
-   * **Model:** OpenAI **CLIP** (*Contrastive Language-Image Pre-Training*).
-   * **Components:** Combines a **Text Transformer** and a **Vision Transformer (ViT)**.
-   * **Vectorization:** Converts both text chunks and images into vector embeddings in a shared space.
-3. **Vector Storage:** Embeddings are indexed in a vector store (**FAISS**) for rapid similarity search.
-4. **Query & Retrieval:**
-   * Incoming user queries are embedded using CLIP.
-   * A vector search retrieves the **Top-$K$ relevant documents** containing mixed text and image data.
-5. **Formatting & LLM Generation:**
-   * Retrieved text and images are formatted into a structured payload.
-   * Sent to the Multimodal LLM (e.g., GPT-4.1 or Gemini Flash 2.5) to produce a grounded multimodal answer.
+   - Model: OpenAI **CLIP** (Contrastive Language-Image Pre-Training)
+   - Components: Text Transformer + Vision Transformer (ViT)
+   - Both text chunks and images are vectorized into a shared embedding space.
+3. **Vector Storage** — Embeddings are indexed in FAISS for rapid similarity search.
+4. **Query & Retrieval** — Incoming queries are embedded with CLIP; vector search retrieves Top-K relevant documents.
+5. **Formatting & LLM Generation** — Retrieved text and images are formatted into a structured payload, sent to a Multimodal LLM.
 
 ---
 
-## 3. Ingesting Non-Digital & Physical Media
+## Ingesting Non-Digital & Physical Media
 
-* **Digitization:** Physical photos or paper pages must be digitized first (via high-resolution scanning or photo capture). Digitization quality directly impacts model accuracy.
-* **Embedding Processing:** Digitized images pass through CLIP visual embedding to convert visual elements into vector representations.
-* **Retrieval Compatibility:** The vector storage and retrieval pipeline must be configured to process digitized images alongside text end-to-end.
-
----
-
-<details><summary>More Detail — Deep Dive into Classic Parsing vs. Visual-Native (ColPali) Architecture</summary>
+- **Digitization** — Physical photos or paper pages must be scanned or photographed at high resolution. Quality directly impacts model accuracy.
+- **Embedding Processing** — Digitized images pass through CLIP visual embedding.
+- **Retrieval Compatibility** — The pipeline must be configured to process digitized images alongside text end-to-end.
 
 ---
 
-# Section 2: Extended & Advanced Multimodal RAG Concepts
+<details><summary>Deep Dive — Classic Parsing vs. Visual-Native (ColPali) Architecture</summary>
 
-## 1. Architectural Paradigms: Classic vs. Visual-Native
+## Architectural Paradigms: Classic vs. Visual-Native
 
 ### Approach A: Classic Parsing Pipeline
 
-1. **Extraction:** Layout tools split documents into raw text and cropped figures.
-2. **Single-Vector Indexing:** Images are either captioned by a VLM or embedded using CLIP into a single vector per chunk.
-3. **Trade-offs:** Fast at scale, but susceptible to OCR loss and destroys spatial formatting (e.g., tables, charts, complex slide decks).
+1. **Extraction** — Layout tools split documents into raw text and cropped figures.
+2. **Single-Vector Indexing** — Images are either captioned by a VLM or embedded via CLIP into a single vector per chunk.
+3. **Trade-offs** — Fast at scale, but susceptible to OCR loss and destroys spatial formatting (tables, charts, complex slide decks).
 
-### Approach B: Visual-Native & OCR-Free Pipeline (ColPali)
+### Approach B: Visual-Native & OCR-Free (ColPali)
 
-* **Concept:** Bypasses text/image extraction entirely by treating every PDF page directly as a single high-resolution image object.
-* **Patch-Level Tokenization:** Pages are split into a grid of visual patches (e.g., ~1024 patches per page) using visual encoders (e.g., ColPali, ColQwen2.5).
-* **Late-Interaction Scoring (MaxSim):**
-  Calculates similarity by finding the maximum cosine similarity between each query token vector $q \in Q$ and document patch vector $d \in D$:
+- **Concept** — Bypasses text/image extraction entirely by treating every PDF page directly as a high-resolution image.
+- **Patch-Level Tokenization** — Pages are split into a grid of visual patches (~1024 patches per page) using visual encoders (ColPali, ColQwen2.5).
+- **Late-Interaction Scoring (MaxSim):**
 
-  $$\text{Score}(Q, D) = \sum_{q \in Q} \max_{d \in D} \left( q \cdot d^\top \right)$$
+$$\text{Score}(Q, D) = \sum_{q \in Q} \max_{d \in D} \left( q \cdot d^\top \right)$$
 
-* **Advantages:** High precision for scanned documents, CAD drawings, financial charts, and complex page layouts without requiring OCR.
+- **Advantages** — High precision for scanned documents, CAD drawings, financial charts, and complex layouts — no OCR required.
 
 ---
 
-## 2. Modern Embedding Models & Document Parsers
+## Modern Embedding Models & Document Parsers
 
 | Category | Key Models & Tools | Primary Use Case |
 | :--- | :--- | :--- |
-| **Unified Single-Vector Models** | Cohere Embed 4, Voyage Multimodal 3.5, SigLIP 2 | Embeds interleaved text and page images into single vector indexes. |
-| **Multi-Vector / Late-Interaction** | ColPali-3, ColQwen2.5-7B, ColSmolVLM | Preserves visual layout and fine-grained patch details for MaxSim search. |
-| **Advanced Layout Parsers** | Docling (IBM), LlamaParse, Marker/Surya OCR, MinerU | Converts non-standard PDFs into layout-aware Markdown and structured tables. |
+| **Unified Single-Vector** | Cohere Embed 4, Voyage Multimodal 3.5, SigLIP 2 | Embeds interleaved text and page images into single vector indexes |
+| **Multi-Vector / Late-Interaction** | ColPali-3, ColQwen2.5-7B, ColSmolVLM | Preserves visual layout and fine-grained patch details for MaxSim search |
+| **Advanced Layout Parsers** | Docling (IBM), LlamaParse, Marker/Surya OCR, MinerU | Converts non-standard PDFs into layout-aware Markdown and structured tables |
 
 ---
 
-## 3. System Architecture Diagrams
+## System Architecture Diagrams
 
 ### A. Classic Parse & CLIP-Based Pipeline
 
@@ -2934,47 +2851,49 @@ A comparison of the three primary ways to customize Large Language Models (LLMs)
 ```
 
 </details>
+
 </details>
 
+---
 
-<details><summary><a id="topic-13-multimodal-rag-architecture" name="topic-13-multimodal-rag-architecture"></a>Phase 9: Multimodal RAG & AI Architecture — Needed to index and retrieve image-rich documents, charts, and visual PDFs (e.g., CLIP / ColPali)</summary>
+<details><summary><a id="topic-13-multimodal-rag-architecture" name="topic-13-multimodal-rag-architecture"></a>Phase 9.2 — Multimodal RAG Architecture (CLIP Joint Embedding Space)</summary>
 
 # Multimodal RAG & Multimodal AI
 
-## 1. What is Multimodal RAG?
+## What is Multimodal RAG?
 
-**Multimodal RAG (Retrieval-Augmented Generation)** extends standard text-only RAG by processing, indexing, retrieving, and reasoning over multiple data modalities—such as **text**, **images**, **charts**, **tables**, and **diagrams**.
+**Multimodal RAG** extends standard text-only RAG by processing, indexing, retrieving, and reasoning over multiple data modalities — text, images, charts, tables, diagrams.
 
-* **Core Goal:** Overcome text-only limitations by combining **Joint Embedding Spaces** (e.g., CLIP) with **Vision LLMs** (e.g., GPT-4o) to handle visual knowledge inside complex documents.
-
----
-
-## 2. Key Architecture Components
-
-1. **Dual Modal Parsing:** Text is chunked via character splitters while visual elements (charts/diagrams) are extracted with image quality filters.
-2. **Joint Embedding Space (CLIP):** Both text passages and image pixels are mapped into the exact same 512-dimensional vector space using OpenAI CLIP.
-3. **Cross-Modal Similarity Search:** Text queries (e.g., *"Show Q1 revenue chart"*) directly match image vectors in the FAISS vector database.
-4. **Structured Vision Prompting:** Retrieved text excerpts and base64-encoded visual images are passed to **GPT-4o** for multi-modal reasoning.
+**Core Goal:** Overcome text-only limitations by combining **Joint Embedding Spaces** (CLIP) with **Vision LLMs** (GPT-4o) to handle visual knowledge inside complex documents.
 
 ---
 
-## 3. Multimodal AI Workflow Diagram
+## Key Architecture Components
+
+1. **Dual Modal Parsing** — Text is chunked via character splitters; visual elements (charts/diagrams) are extracted with image quality filters.
+2. **Joint Embedding Space (CLIP)** — Both text passages and image pixels are mapped into the exact same 512-dimensional vector space using OpenAI CLIP.
+3. **Cross-Modal Similarity Search** — Text queries (e.g., *"Show Q1 revenue chart"*) directly match image vectors in the FAISS vector database.
+4. **Structured Vision Prompting** — Retrieved text excerpts and base64-encoded visual images are passed to GPT-4o for multi-modal reasoning.
+
+---
+
+## Multimodal AI Workflow Diagram
 
 ```mermaid
 flowchart TD
     subgraph Document_Processing["1. Multimodal Document Parsing"]
-        Doc["📄 Multimodal Document<br/>(Text + Visual Charts)"]
-        TextSplitter["✂️ PyMuPDF & Text Splitter<br/>(Text Chunks)"]
-        ImgExtractor["🖼️ Image Extraction & Noise Filter<br/>(PNG -> Base64 URIs)"]
+        Doc["Multimodal Document<br/>(Text + Visual Charts)"]
+        TextSplitter["PyMuPDF & Text Splitter<br/>(Text Chunks)"]
+        ImgExtractor["Image Extraction & Noise Filter<br/>(PNG -> Base64 URIs)"]
         Doc --> TextSplitter
         Doc --> ImgExtractor
     end
 
     subgraph Embedding_Space["2. CLIP Joint Vector Space"]
-        CLIP_Text["🔤 CLIP Text Encoder"]
-        CLIP_Img["👁️ CLIP Vision Encoder (ViT)"]
-        L2_Norm["📐 L2 Vector Normalization"]
-        VectorDB[("🗄️ Unified Vector Store<br/>(FAISS Index - 512d Space)")]
+        CLIP_Text["CLIP Text Encoder"]
+        CLIP_Img["CLIP Vision Encoder (ViT)"]
+        L2_Norm["L2 Vector Normalization"]
+        VectorDB[("Unified Vector Store<br/>(FAISS Index - 512d Space)")]
 
         TextSplitter --> CLIP_Text
         ImgExtractor --> CLIP_Img
@@ -2984,12 +2903,12 @@ flowchart TD
     end
 
     subgraph Retrieval_Synthesis["3. Cross-Modal Retrieval & Generation"]
-        Query["💬 User Query<br/>(e.g., 'What is the Q1 revenue trend?')"]
-        QueryEnc["🔤 Embed Query with CLIP"]
-        Search["🔍 Cross-Modal Similarity Search"]
-        MsgBuilder["📦 Build Structured Multimodal Message<br/>(Text Context + Base64 Images)"]
-        VisionLLM["🧠 Vision LLM (GPT-4o)<br/>(Multimodal Reasoning)"]
-        Output["🎯 Final Grounded Answer"]
+        Query["User Query<br/>(e.g., 'What is the Q1 revenue trend?')"]
+        QueryEnc["Embed Query with CLIP"]
+        Search["Cross-Modal Similarity Search"]
+        MsgBuilder["Build Structured Multimodal Message<br/>(Text Context + Base64 Images)"]
+        VisionLLM["Vision LLM (GPT-4o)<br/>(Multimodal Reasoning)"]
+        Output["Final Grounded Answer"]
 
         Query --> QueryEnc
         QueryEnc --> Search
@@ -3003,118 +2922,111 @@ flowchart TD
 
 ---
 
-## 4. Key Benefits
+## Key Benefits
 
 | Feature | Standard RAG | Multimodal RAG |
-| --- | --- | --- |
-| **Data Modality** | Text Chunks Only | Text + Images + Charts + Diagrams |
-| **Vector Space** | Text Embedding Models | CLIP Shared Vector Space (Text & Image) |
-| **Retrieval Type** | Text-to-Text | Cross-Modal (Text-to-Image & Text-to-Text) |
+| :--- | :--- | :--- |
+| **Data Modality** | Text chunks only | Text + Images + Charts + Diagrams |
+| **Vector Space** | Text embedding models | CLIP shared vector space (text & image) |
+| **Retrieval Type** | Text-to-text | Cross-modal (text-to-image & text-to-text) |
 | **Reasoning Model** | Text LLM (GPT-3.5/4) | Vision LLM (GPT-4o / GPT-4 Vision) |
 
-<img width="774" height="1024" alt="image" src="https://github.com/user-attachments/assets/4dba0baa-9a14-40e6-8d7b-865780a09e88" />
-
+<img width="774" height="1024" alt="Multimodal RAG Architecture" src="https://github.com/user-attachments/assets/4dba0baa-9a14-40e6-8d7b-865780a09e88" />
 
 </details>
 
+---
 
-<details><summary><a id="topic-14-agentic-ai" name="topic-14-agentic-ai"></a>Phase 10: AI Agents vs. Agentic AI — Needed to distinguish simple tool-calling bots from autonomous, goal-driven, multi-step agent systems</summary>
-
+<details><summary><a id="topic-14-agentic-ai" name="topic-14-agentic-ai"></a>Phase 10 — AI Agents vs. Agentic AI: Autonomous Multi-Agent Architectures</summary>
 
 ## Key Definitions
 
-* **AI Agents:** Individual, task-specific software programs designed to carry out dedicated tasks autonomously with minimal to no human intervention.
-* **Agentic AI:** A broader system framework where multiple AI agents collaborate, adapt, and make complex decisions independently to achieve large-scale goals.
+- **AI Agents** — Individual, task-specific software programs designed to carry out dedicated tasks autonomously with minimal human intervention.
+- **Agentic AI** — A broader system framework where multiple AI agents collaborate, adapt, and make complex decisions independently to achieve large-scale goals.
 
 ---
 
 ## Core Differences
 
 | Feature | AI Agents | Agentic AI |
-| --- | --- | --- |
-| **Scope & Architecture** | Single entity focused on a specific task. | Network of collaborating agents working across complex workflows. |
-| **Functionality & Autonomy** | Handles predefined tasks with limited autonomy. | Focuses on overall system optimization with high flexibility. |
-| **Decision-Making** | Relies on predefined rules and rigid boundaries. | Makes autonomous decisions based on real-time data and circumstances. |
-| **Adaptability** | Operates strictly within given parameters. | Continuous learning, reasoning, and adapting over time from experience. |
+| :--- | :--- | :--- |
+| **Scope & Architecture** | Single entity focused on a specific task | Network of collaborating agents across complex workflows |
+| **Functionality & Autonomy** | Handles predefined tasks with limited autonomy | Focuses on overall system optimization with high flexibility |
+| **Decision-Making** | Relies on predefined rules and rigid boundaries | Makes autonomous decisions based on real-time data and circumstances |
+| **Adaptability** | Operates strictly within given parameters | Continuous learning, reasoning, and adapting from experience |
 
 ---
 
 ## Core Operational Loop of Agentic AI
 
-1. **Perception:** Gathers and processes data from the surrounding environment.
-2. **Reasoning:** Analyzes the context to understand current events and goals.
-3. **Action:** Executes specific targeted actions based on conclusions.
-4. **Learning:** Evaluates feedback and improves system performance over time.
+1. **Perception** — Gathers and processes data from the surrounding environment.
+2. **Reasoning** — Analyzes context to understand current events and goals.
+3. **Action** — Executes specific targeted actions based on conclusions.
+4. **Learning** — Evaluates feedback and improves performance over time.
 
 ---
 
 ## Technical Components (Architecture)
 
-* **Brain / Reasoning Engine:** Large Language Models (LLMs) that process instructions, plan steps, and drive decisions.
-* **Tools & Execution:** External tools and APIs used to perform actions (e.g., search tools, software integration).
-* **Databases & Memory:** Historical context and data storage for recall and continuous learning.
+- **Brain / Reasoning Engine** — LLMs that process instructions, plan steps, and drive decisions.
+- **Tools & Execution** — External tools and APIs to perform actions (search tools, software integration).
+- **Databases & Memory** — Historical context and data storage for recall and continuous learning.
 
 ---
 
 ## Practical Examples
 
-### AI Agents
+**AI Agents:**
+- **Customer Service Chatbots** — Handles standard queries within set script parameters.
+- **Automated Banking Bots** — Performs specific transactions following clearly defined, rigid procedures.
 
-* **Customer Service Chatbots:** Handles standard queries or balance inquiries within set script parameters.
-* **Automated Banking Bots:** Performs specific transactions following clearly defined, rigid procedures.
+**Agentic AI:**
+- **Smart Home Systems** — Networks multiple devices (lights, thermostat, appliances) to optimize power, security, and climate based on real-time habits.
+- **Personalized Health Assistants** — Analyzes patient medical history, real-time vitals, and lifestyle factors while updating recommendations as new medical research emerges.
 
-### Agentic AI
-
-* **Smart Home Systems:** Networks multiple devices (lights, thermostat, appliances) to optimize power usage, security, and climate based on real-time habits.
-* **Personalized Health Assistants:** Analyzes complete patient medical history, real-time vital metrics, and lifestyle factors while updating recommendations as new medical research emerges.
 </details>
 
+---
 
-<details><summary><a id="topic-15-agentic-sdlc" name="topic-15-agentic-sdlc"></a>Phase 11: Example: Why We Need Agentic AI (Software Development Workflow) — Needed to demonstrate end-to-end autonomous software development, testing, and deployment automation</summary>
---
-
+<details><summary><a id="topic-15-agentic-sdlc" name="topic-15-agentic-sdlc"></a>Phase 11 — Agentic SDLC Case Study: Autonomous Software Development Workflow</summary>
 
 ## 1. Traditional Agile Software Development Workflow
 
-* **Projects (e.g., XYZ Company):**
-1. **Requirement Gathering:** Handled by Business Analysts and Product Managers.
-2. **Sprint Planning:** Execution using the Agile process framework.
-3. **Developer Teams:** Manual implementation and task assignment across human developers.
-
-
+**Projects (e.g., XYZ Company):**
+1. **Requirement Gathering** — Handled by Business Analysts and Product Managers.
+2. **Sprint Planning** — Execution using the Agile process framework.
+3. **Developer Teams** — Manual implementation and task assignment across human developers.
 
 ---
 
 ## 2. Agentic AI System Overview
 
-* **Core Concept:** Integrating Large Language Models (LLMs) and autonomous AI Agents into software development to automate tasks from requirement breakdown to code generation and testing.
-* **Key Components:**
-* **Requirements Processing:** Inputs (business requirements) are processed by an LLM-driven system to generate structured tasks.
-* **Task Decomposition:** High-level requirements are split into discrete sub-tasks:
-* **Task 1** $\rightarrow$ **Dev 1 Agent**
-* **Task 2** $\rightarrow$ **Dev 2 Agent**
-* **Task 3** $\rightarrow$ **Dev 3 Agent**
+**Core Concept:** Integrating LLMs and autonomous AI Agents into software development to automate tasks from requirement breakdown to code generation and testing.
 
-
-
-
+**Key Components:**
+- **Requirements Processing** — Business requirements are processed by an LLM-driven system to generate structured tasks.
+- **Task Decomposition** — High-level requirements are split into discrete sub-tasks:
+  - Task 1 → Dev 1 Agent
+  - Task 2 → Dev 2 Agent
+  - Task 3 → Dev 3 Agent
 
 ---
 
 ## 3. Agentic Workflow Execution & Features
 
-* **AI Developers (Dev 1, Dev 2, Dev 3):** Autonomous AI agents executing code implementation based on assigned sub-tasks.
-* **Automated Quality Assurance & Engineering:**
-* **Code Review:** Autonomous evaluation of generated code quality and standards.
-* **Testing & Bug Reporting:** Automated test execution with feedback loops to raise bugs.
-* **Prompt Engineering:** Refinement of system prompts to optimize code output quality.
+**AI Developers (Dev 1, Dev 2, Dev 3):**
+- Autonomous AI agents executing code implementation based on assigned sub-tasks.
 
+**Automated Quality Assurance & Engineering:**
+- **Code Review** — Autonomous evaluation of code quality and standards.
+- **Testing & Bug Reporting** — Automated test execution with feedback loops to raise bugs.
+- **Prompt Engineering** — Refinement of system prompts to optimize code output quality.
 
-* **Human Intervention & Feedback (Human-in-the-Loop):**
-* Human oversight is integrated into critical decision points to maintain high **accuracy** and ensure compliance with business requirements.
+**Human-in-the-Loop:**
+- Human oversight integrated at critical decision points to maintain accuracy and ensure compliance with business requirements.
 
+**Use Cases:**
+- Coding projects
+- Blog generation systems
 
-* **Use Cases / Applications Mentioned:**
-* Coding projects
-* Blog generation systems
 </details>
