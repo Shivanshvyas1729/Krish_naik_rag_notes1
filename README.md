@@ -2493,6 +2493,8 @@ Retrieved Real Chunk 2: Apple announced the acquisition of NeXT in December 1996
 **Hybrid Retrieval** combines dense and sparse scoring methods to improve search recall and relevance — "best of both worlds": semantic understanding from vector embeddings + precise keyword matching.
 
 ---
+<img width="1989" height="647" alt="image" src="https://github.com/user-attachments/assets/5a116764-c8cd-4b9a-8a2e-3747d7dfae04" />
+<img width="969" height="421" alt="image" src="https://github.com/user-attachments/assets/3ad379d8-f378-4355-92e0-2d6978e77fce" />
 
 ### 1. Sparse Retrieval (Exact Keyword Search)
 
@@ -2522,6 +2524,9 @@ A popular approach that many hybrid search systems rely on is combining [BM25](h
 
 There are multiple ways to combine BM25 and vector search scores. Among them are **Reciprocal Rank Fusion (RRF)** and **Relative Score Fusion (RSF)**—both of which are recommended techniques for hybrid search in MongoDB Atlas, Elasticsearch, and enterprise RAG pipelines.
 
+
+<img width="1940" height="931" alt="image" src="https://github.com/user-attachments/assets/4d3115ad-b945-41d7-a2c3-9f6de851626c" />
+
 ---
 
 ### 4. Deep-Dive Examination: Reciprocal Rank Fusion (RRF) vs. Relative Score Fusion (RSF)
@@ -2537,6 +2542,8 @@ Directly adding raw BM25 and vector similarity scores leads to severe distortion
 Normalization prevents methods with larger raw scores from dominating the final results. When you combine different search systems—like keyword-based BM25 and vector-based semantic search—they often output scores on entirely different scales. 
 
 Without normalization, a method that scores on a scale of 0 to 100 will completely overwhelm a method that scores on a scale of 0 to 1. Rescaling these distributions to a common range (like 0 to 1) ensures that both methods contribute equally to the final ranked list.
+
+<img width="1979" height="944" alt="image" src="https://github.com/user-attachments/assets/10474d4c-3aa3-47be-9a75-9988b9edbe6d" />
 
 #### Common Normalization Techniques in Hybrid Search
 
