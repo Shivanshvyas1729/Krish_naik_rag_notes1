@@ -2762,6 +2762,47 @@ Result 2: To authenticate with AWS services, configure error code ERR_AUTH_4012 
 RAG Answer: ERR_AUTH_4012 indicates a system authorization failure occurring when an authentication token expires or requires IAM role assumption.
 ```
 
+- IMP
+
+  Here is a highly scannable, structured summary of your notes on why vector search falls short and how hybrid search fixes its limitations:
+------------------------------
+## 🧠 Why Vector Search Alone Fails
+Vector search captures broad "vibes" and concepts, but it fundamentally struggles with precision, logic, and structured layouts.
+## 1. Meaning vs. Relevance
+
+* The Limitation: Matches conceptual similarity, not direct answers.
+* The Failure: Searching "How to cancel" might pull up "Why you should renew" because the shared topic is subscriptions.
+
+## 2. Precise Keyphrase Failures
+
+* The Limitation: Terrible at matching exact strings, proper nouns, or codes.
+* The Failure: Searching for part number "XYZ-999-2026" might return "XYZ-998" because it looks visually similar to the algorithm.
+
+## 3. Numerical & Temporal Blindness
+
+* The Limitation: Reads numbers and dates as plain text words rather than mathematical or chronological values.
+* The Failure: Searching for "articles after 2025" fails because the engine cannot compute a "greater than" (>) math function.
+
+## 4. Layout Destruction
+
+* The Limitation: Long documents must be chopped into text chunks, stripping away formatting.
+* The Failure: Breaking up a financial table separates row headers from column values, turning structured facts into a random pile of numbers.
+
+------------------------------
+## 🛠️ How Hybrid Search Solves It
+Hybrid search combines the semantic understanding of vectors with the rigid rules of traditional databases and keyword engines.
+## Solution for Numbers & Dates: Metadata Filtering
+
+* The Strategy: Enhances vector search with hard, database-driven constraints.
+* How it works: For the query "articles after 2025," the vector engine handles the topic, while the database applies a strict rule: Date > 2025-12-31.
+* The Outcome: Eradicates chronological errors by blocking old data completely.
+
+## Solution for Layout Destruction: Keyword Search (BM25)
+
+* The Strategy: Runs traditional exact-match tracking alongside vector chunks.
+* How it works: Looks for precise token proximity rather than abstract ideas. It tracks when words like "Revenue" sit directly next to a value like "5 Million".
+* The Outcome: Restores context to tables and structural layouts by locking exact text labels back to their values.
+
 </details>
 
 ---
