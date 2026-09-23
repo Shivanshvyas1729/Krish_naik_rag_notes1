@@ -2530,7 +2530,21 @@ When combining BM25 keyword matching with dense vector search, the fundamental c
 - **BM25 scores** are unbounded positive numbers ($[0, \infty)$) dependent on document length and inverse document frequency (e.g., scores of $14.8, 8.2, 3.1$).
 - **Vector search scores** are bounded similarity metrics (e.g., Cosine similarity in $[-1, 1]$ or $[0, 1]$, or distance metrics like Euclidean where smaller distance means greater proximity).
 
-Directly adding raw BM25 and vector similarity scores leads to severe distortion because BM25 values typically dwarf vector similarity values. RRF and RSF resolve this using two fundamentally different paradigms: **Rank-based fusion** vs. **Score-normalized fusion**.
+Directly adding raw BM25 and vector similarity scores leads to severe distortion because BM25 values typically dwarf vector similarity values.
+
+#### Why Normalization is Essential in Hybrid Search
+
+Normalization prevents methods with larger raw scores from dominating the final results. When you combine different search systems—like keyword-based BM25 and vector-based semantic search—they often output scores on entirely different scales. 
+
+Without normalization, a method that scores on a scale of 0 to 100 will completely overwhelm a method that scores on a scale of 0 to 1. Rescaling these distributions to a common range (like 0 to 1) ensures that both methods contribute equally to the final ranked list.
+
+#### Common Normalization Techniques in Hybrid Search
+
+- **Min-Max Normalization:** Rescales scores linearly to a fixed `[0, 1]` range based on the minimum and maximum scores in the pool.
+- **Reciprocal Rank Fusion (RRF):** Ignores raw scores entirely and uses the position (rank) of the document instead.
+- **Z-Score Normalization:** Standardizes scores based on the mean and standard deviation ($\mu, \sigma$), which is helpful if the distributions have heavy outliers.
+
+RRF and RSF resolve this using two fundamentally different paradigms: **Rank-based fusion** vs. **Score-normalized fusion**.
 
 ---
 
