@@ -17,7 +17,7 @@ How a production RAG & Agentic AI project flows end-to-end. Click any link to ju
 | **3** | Semantic Chunking | Meaning-aware splitting via sentence embedding distance spikes and similarity threshold breakpoints | [Phase 3](#topic-5-semantic-chunking) |
 | **4** | Vector Storage | Vector Stores vs Vector DBs, ChromaDB, FAISS, InMemory, Pinecone, AstraDB, Qdrant, distance metrics | [Phase 4](#topic-4-vector-db) |
 | **5** | Pre-Retrieval Query Transformation | Query Expansion (LLM synonyms), Query Decomposition (multi-hop), HyDE (hypothetical doc embeddings) | [Query Expansion](#topic-9-query-expansion) · [Decomposition](#topic-10-query-decomposition) · [HyDE](#topic-11-hyde) |
-| **6** | Advanced Retrieval & Ranking | Hybrid Search (Dense + BM25 + RRF), Cross-Encoder Re-ranking, MMR | [Hybrid Search](#topic-6-hybrid-search) · [Re-ranking](#topic-7-reranking) · [MMR](#topic-8-mmr) |
+| **6** | Advanced Retrieval & Ranking | Hybrid Search (Dense + BM25, RRF & RSF Fusion), Cross-Encoder Re-ranking, MMR | [Hybrid Search](#topic-6-hybrid-search) · [Re-ranking](#topic-7-reranking) · [MMR](#topic-8-mmr) |
 | **7** | RAG Chain Construction & Memory | LCEL RAG chains, conversational memory with `create_history_aware_retriever`, pre-built chains | [Phase 7](#topic-7-rag-chains) |
 | **7.1** | `format_docs` Decision Guide | When to use vs. when NOT to use `format_docs` (LCEL vs. pre-built helpers) | [format_docs Guide](#format-docs-deep-dive) |
 | **8** | Fine-Tuning vs RAG | Decision matrix: knowledge freshness, hallucination reduction, cost | [Phase 8](#topic-3-finetuning-vs-rag) |
@@ -38,7 +38,7 @@ How a production RAG & Agentic AI project flows end-to-end. Click any link to ju
    - [5.2 Query Decomposition](#topic-10-query-decomposition)
    - [5.3 HyDE — Hypothetical Document Embeddings](#topic-11-hyde)
 6. [Phase 6 — Advanced Retrieval & Precision Ranking](#topic-6-hybrid-search)
-   - [6.1 Hybrid Search (Dense + Sparse)](#topic-6-hybrid-search)
+   - [6.1 Hybrid Search (Dense + Sparse Retrieval, BM25, RRF & RSF Fusion)](#topic-6-hybrid-search)
    - [6.2 Re-ranking (Cross-Encoder)](#topic-7-reranking)
    - [6.3 MMR — Maximal Marginal Relevance](#topic-8-mmr)
 7. [Phase 7 — RAG Chains, Conversational Memory & format_docs Guide](#topic-7-rag-chains)
@@ -1055,6 +1055,115 @@ Chunks from this method are designed to be **self-contained, contextually rich, 
 [33-Semantic+Chunking.pdf](https://github.com/user-attachments/files/29892074/33-Semantic%2BChunking.pdf)
 
 *Additional notes on text representation techniques: [Text Representation tech. Repo](https://github.com/Shivanshvyas1729/pydantic_notes/blob/main/nlp/Text%20Representation%20tech.md).*
+---
+
+### Implementation: Semantic Chunking
+
+#### Method A: Production LangChain Semantic Chunker (Experimental)
+Splits documents dynamically based on sentence embedding distance thresholds.
+
+```python
+from langchain_experimental.text_splitter import SemanticChunker
+from langchain_huggingface import HuggingFaceEmbeddings
+
+# 1. Initialize embedding model
+embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+
+# 2. Configure SemanticChunker with percentile breakpoint threshold
+# Splits when sentence distance exceeds the 95th percentile of all distance differences
+semantic_chunker = SemanticChunker(
+    embeddings=embeddings,
+    breakpoint_threshold_type="percentile",  # Options: 'percentile', 'standard_deviation', 'interquartile', 'gradient'
+    breakpoint_threshold_amount=95
+)
+
+# 3. Sample document text with distinct topic transition
+sample_text = """
+LangChain is a framework for developing applications powered by language models.
+It provides modular abstractions for chains, agents, memory, and vector retrieval.
+Developers use LangChain to build robust LLM orchestration workflows.
+
+The Eiffel Tower is a wrought-iron lattice tower on the Champ de Mars in Paris, France.
+It was constructed from 1887 to 1889 as the centerpiece of the 1889 World's Fair.
+Paris attracts millions of global tourists every year for historical landmarks.
+"""
+
+# 4. Split text into semantic chunks
+chunks = semantic_chunker.split_text(sample_text)
+
+for idx, chunk in enumerate(chunks, 1):
+    print(f"--- Semantic Chunk {idx} ({len(chunk)} chars) ---")
+    print(chunk.strip())
+```
+
+#### Method B: First-Principles Implementation with Cosine Distance
+Demonstrates the exact distance threshold calculation under the hood using SentenceTransformers and cosine distance.
+
+```python
+import numpy as np
+from sentence_transformers import SentenceTransformer
+from sklearn.metrics.pairwise import cosine_similarity
+
+# 1. Load sentence embedding model
+model = SentenceTransformer("all-MiniLM-L6-v2")
+
+# 2. Split document into individual sentences
+sentences = [
+    "LangChain is a framework for developing applications powered by language models.",
+    "It provides modular abstractions for chains, agents, memory, and vector retrieval.",
+    "Developers use LangChain to build robust LLM orchestration workflows.",
+    "The Eiffel Tower is a wrought-iron lattice tower on the Champ de Mars in Paris, France.",
+    "It was constructed from 1887 to 1889 as the centerpiece of the 1889 World's Fair.",
+    "Paris attracts millions of global tourists every year for historical landmarks."
+]
+
+# 3. Compute dense vector embeddings for each sentence
+embeddings = model.encode(sentences)
+
+# 4. Compute cosine distances between consecutive sentences
+distances = []
+for i in range(len(embeddings) - 1):
+    sim = cosine_similarity([embeddings[i]], [embeddings[i + 1]])[0][0]
+    dist = 1.0 - sim  # Cosine distance
+    distances.append(dist)
+
+# 5. Determine breakpoint threshold (e.g., 90th percentile or mean + 1.2 std)
+threshold = np.percentile(distances, 80)
+
+# 6. Group sentences into coherent chunks
+chunks = []
+current_chunk = [sentences[0]]
+
+for i, dist in enumerate(distances):
+    if dist > threshold:
+        # Distance spike detected: start new semantic chunk
+        chunks.append(" ".join(current_chunk))
+        current_chunk = [sentences[i + 1]]
+    else:
+        current_chunk.append(sentences[i + 1])
+
+if current_chunk:
+    chunks.append(" ".join(current_chunk))
+
+for idx, chunk in enumerate(chunks, 1):
+    print(f"Chunk {idx}: {chunk}")
+```
+
+#### Key Parameters & Concepts
+- `breakpoint_threshold_type`: Strategy used to calculate where semantic splits occur:
+  - `percentile` (Default): Splits when distance between sentence vectors exceeds a set percentile (e.g. 95th).
+  - `standard_deviation`: Splits when distance exceeds `mean + (X * std_dev)`.
+  - `interquartile`: Uses IQR (Interquartile Range) to identify statistical distance outliers.
+  - `gradient`: Evaluates gradient changes in embedding distance trajectory.
+- **Why it matters**: Unlike fixed character splitters that can cut sentences in half, semantic chunking preserves complete contextual ideas inside each chunk.
+
+#### Expected Output
+```text
+--- Semantic Chunk 1 (210 chars) ---
+LangChain is a framework for developing applications powered by language models. It provides modular abstractions for chains, agents, memory, and vector retrieval. Developers use LangChain to build robust LLM orchestration workflows.
+--- Semantic Chunk 2 (218 chars) ---
+The Eiffel Tower is a wrought-iron lattice tower on the Champ de Mars in Paris, France. It was constructed from 1887 to 1889 as the centerpiece of the 1889 World's Fair. Paris attracts millions of global tourists every year for historical landmarks.
+```
 
 </details>
 
@@ -2071,6 +2180,68 @@ $$\text{Better Query} \longrightarrow \text{Better Retrieved Chunks} \longrighta
 6. **Final LLM Output** — Ordered context is passed to the LLM to generate the final answer.
 
 <img width="611" height="538" alt="Query Expansion Architecture" src="https://github.com/user-attachments/assets/4e5c34d0-9ec2-4a37-a2d8-406faf767fec" />
+---
+
+### Implementation: Query Expansion with LCEL
+
+#### Imports
+```python
+from langchain.chat_models import init_chat_model
+from langchain_core.prompts import PromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+from langchain_community.vectorstores import FAISS
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_core.documents import Document
+```
+
+#### How to Use
+```python
+# 1. Initialize LLM and vector store with sample documentation
+llm = init_chat_model("openai:gpt-4o-mini", temperature=0.2)
+embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+
+docs = [
+    Document(page_content="LangGraph enables multi-agent orchestration, cyclical graphs, and durable execution states."),
+    Document(page_content="Vector indexing uses hierarchical navigable small world (HNSW) graphs for fast similarity search."),
+    Document(page_content="Agentic systems utilize memory checkpoints and human-in-the-loop approval middleware.")
+]
+vectorstore = FAISS.from_documents(docs, embeddings)
+retriever = vectorstore.as_retriever(search_kwargs={"k": 2})
+
+# 2. Construct Query Expansion Prompt and LCEL Chain
+expansion_prompt = PromptTemplate.from_template("""
+You are an expert search query reformulation engine.
+Expand the following user query by generating related technical terms, synonyms, and domain vocabulary to maximize document retrieval recall.
+
+Original Query: "{query}"
+
+Expanded Query (single concise enriched search query):
+""")
+
+expansion_chain = expansion_prompt | llm | StrOutputParser()
+
+# 3. Execute expansion and perform enhanced retrieval
+original_query = "agent orchestration"
+expanded_query = expansion_chain.invoke({"query": original_query})
+print(f"Original Query: {original_query}")
+print(f"Expanded Query: {expanded_query.strip()}")
+
+retrieved_docs = retriever.invoke(expanded_query)
+for idx, doc in enumerate(retrieved_docs, 1):
+    print(f"Retrieved Doc {idx}: {doc.page_content}")
+```
+
+#### Key Parameters & Concepts
+- `expansion_chain`: An LCEL pipeline (`PromptTemplate | LLM | StrOutputParser`) that enriches user keywords before vector retrieval.
+- **Vocabulary Mismatch Solution**: When users query "agent orchestration", the knowledge base might say "multi-agent coordination and cyclical graphs". Expanding the query bridges the lexical gap.
+
+#### Expected Output
+```text
+Original Query: agent orchestration
+Expanded Query: multi-agent orchestration cyclical workflows agent coordination task delegation LangGraph
+Retrieved Doc 1: LangGraph enables multi-agent orchestration, cyclical graphs, and durable execution states.
+Retrieved Doc 2: Agentic systems utilize memory checkpoints and human-in-the-loop approval middleware.
+```
 
 </details>
 
@@ -2113,6 +2284,92 @@ $$\text{Better Query} \longrightarrow \text{Better Retrieved Chunks} \longrighta
 **Increased Latency & Cost** — Multiple retrieval steps and several LLM calls per user request significantly increases processing time and API token usage.
 
 <img width="638" height="545" alt="Query Decomposition Architecture" src="https://github.com/user-attachments/assets/d07990de-cf22-4c1d-9f33-b03ef3513c14" />
+---
+
+### Implementation: Multi-Hop Query Decomposition
+
+#### Imports
+```python
+from langchain.chat_models import init_chat_model
+from langchain_core.prompts import PromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+from langchain_community.vectorstores import FAISS
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_core.documents import Document
+```
+
+#### How to Use
+```python
+# 1. Initialize LLM and vector store with multi-topic documents
+llm = init_chat_model("openai:gpt-4o-mini", temperature=0.0)
+embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+
+kb_docs = [
+    Document(page_content="LangChain memory stores conversation history using InMemoryChatMessageHistory or Redis."),
+    Document(page_content="CrewAI manages agent collaboration through hierarchical processes, role playing, and task delegation."),
+    Document(page_content="LangGraph supports stateful agent cycles and time-travel persistence for long-running workflows.")
+]
+vectorstore = FAISS.from_documents(kb_docs, embeddings)
+retriever = vectorstore.as_retriever(search_kwargs={"k": 1})
+
+# 2. Step 1: Decomposition Chain (Breaks complex query into atomic sub-questions)
+decomp_prompt = PromptTemplate.from_template("""
+Decompose the following complex user question into 2 distinct, self-contained sub-questions for document retrieval.
+Output each sub-question on a new line without numbering or bullets.
+
+Question: "{question}"
+""")
+decomp_chain = decomp_prompt | llm | StrOutputParser()
+
+complex_query = "How does LangChain memory differ from CrewAI agent orchestration?"
+sub_queries_text = decomp_chain.invoke({"question": complex_query})
+sub_queries = [q.strip() for q in sub_queries_text.strip().splitlines() if q.strip()]
+
+# 3. Step 2: Retrieve context and answer each sub-question independently
+qa_prompt = PromptTemplate.from_template("""
+Answer the question using only the provided context:
+Context: {context}
+Question: {question}
+Answer:
+""")
+qa_chain = qa_prompt | llm | StrOutputParser()
+
+sub_answers = []
+for sub_q in sub_queries:
+    docs = retriever.invoke(sub_q)
+    context_text = "\n".join(d.page_content for d in docs)
+    sub_ans = qa_chain.invoke({"question": sub_q, "context": context_text})
+    sub_answers.append(f"Sub-Question: {sub_q}\nAnswer: {sub_ans}")
+
+# 4. Step 3: Synthesis Chain (Combine sub-answers into final answer)
+synthesis_prompt = PromptTemplate.from_template("""
+Synthesize a comprehensive answer to the user's original question using the retrieved sub-question answers.
+
+Original Question: "{original_question}"
+Sub-Answers:
+{sub_answers}
+
+Comprehensive Answer:
+""")
+synthesis_chain = synthesis_prompt | llm | StrOutputParser()
+
+final_response = synthesis_chain.invoke({
+    "original_question": complex_query,
+    "sub_answers": "\n\n".join(sub_answers)
+})
+
+print(final_response)
+```
+
+#### Key Parameters & Concepts
+- `decomp_chain`: Decomposes multi-part or comparative queries into single-hop atomic questions.
+- **Independent Retrieval**: Prevents vector averaging where a combined question vector fails to match either specific topic accurately.
+- **Synthesis Step**: Merges answers from individual retrievals into a cohesive response.
+
+#### Expected Output
+```text
+LangChain memory focuses on persisting conversational history across interactions using storage backends like Redis or in-memory histories. In contrast, CrewAI is designed for agent orchestration, facilitating role-based collaboration, task delegation, and hierarchical workflows among multiple autonomous agents.
+```
 
 </details>
 
@@ -2163,6 +2420,67 @@ $$\text{Better Query} \longrightarrow \text{Better Retrieved Chunks} \longrighta
 | **Plug-and-Play** | Easy to integrate with existing providers (OpenAI, Cohere, HuggingFace) |
 
 <img width="515" height="231" alt="HyDE Architecture" src="https://github.com/user-attachments/assets/26307b0f-6aa7-4595-a621-41db55476ab7" />
+---
+
+### Implementation: Hypothetical Document Embeddings (HyDE)
+
+#### Imports
+```python
+from langchain.chat_models import init_chat_model
+from langchain_core.prompts import PromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+from langchain_community.vectorstores import FAISS
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_core.documents import Document
+```
+
+#### How to Use
+```python
+# 1. Initialize models
+llm = init_chat_model("openai:gpt-4o-mini", temperature=0.3)
+embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+
+# 2. Seed knowledge base
+docs = [
+    Document(page_content="NeXT Computer was founded in 1985 by Steve Jobs after his resignation from Apple Computer. The company developed the NeXTSTEP object-oriented operating system."),
+    Document(page_content="Apple announced the acquisition of NeXT in December 1996 for 429 million dollars, bringing Steve Jobs back to Apple and using NeXTSTEP as the foundation for macOS.")
+]
+vectorstore = FAISS.from_documents(docs, embeddings)
+
+# 3. HyDE Prompt: Generate hypothetical answer passage
+hyde_prompt = PromptTemplate.from_template("""
+Write a short, authoritative paragraph that answers the following question. Do not state whether you know the answer; simply write what a relevant encyclopedia entry would look like.
+
+Question: "{question}"
+Hypothetical Document:
+""")
+
+hyde_chain = hyde_prompt | llm | StrOutputParser()
+
+# 4. Execute HyDE Generation & Retrieval
+user_query = "When and why was NeXT founded by Steve Jobs?"
+hypothetical_passage = hyde_chain.invoke({"question": user_query})
+print(f"Hypothetical Document Generated:\n{hypothetical_passage.strip()}\n")
+
+# Search vector store using the hypothetical document embedding
+matched_docs = vectorstore.similarity_search(hypothetical_passage, k=2)
+
+for idx, doc in enumerate(matched_docs, 1):
+    print(f"Retrieved Real Chunk {idx}: {doc.page_content}")
+```
+
+#### Key Parameters & Concepts
+- `hypothetical_passage`: Generated passage simulating an actual document paragraph rather than a short query sentence.
+- **Asymmetry Inversion**: Replaces short question vector with a document-shaped vector, dramatically improving cosine similarity matches against real stored document chunks.
+
+#### Expected Output
+```text
+Hypothetical Document Generated:
+NeXT, Inc. was founded in 1985 by Steve Jobs following his departure from Apple. The company was created to develop high-end computer workstations for higher education and business markets.
+
+Retrieved Real Chunk 1: NeXT Computer was founded in 1985 by Steve Jobs after his resignation from Apple Computer. The company developed the NeXTSTEP object-oriented operating system.
+Retrieved Real Chunk 2: Apple announced the acquisition of NeXT in December 1996 for 429 million dollars, bringing Steve Jobs back to Apple and using NeXTSTEP as the foundation for macOS.
+```
 
 </details>
 
@@ -2194,7 +2512,144 @@ Focuses on the underlying *meaning* and context, not just exact word matches.
 
 ---
 
-### The Hybrid Search Formula
+### 3. Combining BM25 and Vector Search Results
+
+A popular approach that many hybrid search systems rely on is combining [BM25](https://en.wikipedia.org/wiki/Okapi_BM25) (Best Match 25) and vector similarity (measured using distance metrics like dot product, Euclidean, cosine, Hamming, etc.) scores to deliver more accurate and relevant search results.
+
+- **BM25 Keyword Scoring:** [BM25](https://en.wikipedia.org/wiki/Okapi_BM25) is the default scoring algorithm in [Apache Lucene](https://github.com/apache/lucene/blob/releases/lucene/9.7.0/lucene/core/src/java/org/apache/lucene/search/similarities/BM25Similarity.java) and [MongoDB Search](https://www.mongodb.com/products/platform/atlas-search). It focuses on keyword relevance and ranks documents based on the frequency in which the queried keywords appear, considering factors like document length and overall term frequency.
+- **Vector Search Semantic Scoring:** On the other hand, with vector search, documents are ranked based on their semantic relevance to the query rather than keyword matching. The user query is first converted into [vector embeddings](https://www.mongodb.com/resources/basics/vector-embeddings)—numerical representations of the query text, which is then compared to the vector embeddings generated from all data within the database in order to find the closest matches. In [MongoDB Vector Search](https://www.mongodb.com/products/platform/atlas-vector-search), semantic similarity can be determined using Euclidean, cosine, or dot product metrics.
+- **Unified Ranking:** Finally, the BM25 and vector search scores are combined to create a unified ranking, delivering the highest-ranked results to end users.
+
+There are multiple ways to combine BM25 and vector search scores. Among them are **Reciprocal Rank Fusion (RRF)** and **Relative Score Fusion (RSF)**—both of which are recommended techniques for hybrid search in MongoDB Atlas, Elasticsearch, and enterprise RAG pipelines.
+
+---
+
+### 4. Deep-Dive Examination: Reciprocal Rank Fusion (RRF) vs. Relative Score Fusion (RSF)
+
+When combining BM25 keyword matching with dense vector search, the fundamental challenge is **scale incommensurability**:
+- **BM25 scores** are unbounded positive numbers ($[0, \infty)$) dependent on document length and inverse document frequency (e.g., scores of $14.8, 8.2, 3.1$).
+- **Vector search scores** are bounded similarity metrics (e.g., Cosine similarity in $[-1, 1]$ or $[0, 1]$, or distance metrics like Euclidean where smaller distance means greater proximity).
+
+Directly adding raw BM25 and vector similarity scores leads to severe distortion because BM25 values typically dwarf vector similarity values. RRF and RSF resolve this using two fundamentally different paradigms: **Rank-based fusion** vs. **Score-normalized fusion**.
+
+---
+
+#### Paradigm 1: Reciprocal Rank Fusion (RRF) — Rank-Based Fusion
+
+**How it works:**
+RRF calculates the reciprocal rank of each document across different search methods and then combines these ranks into a unified score for each document. It completely discards the raw score magnitudes and operates purely on the **ordinal position (rank)** of documents in each retriever's result list.
+
+It is particularly useful when there are various contextual meanings and data fields that need to be taken into consideration because it allows for a more balanced and well-rounded overall ranking without requiring complex score calibration.
+
+**Mathematical Formula:**
+$$RRF\_Score(d \in D) = \sum_{m \in M} \frac{w_m}{k + r_m(d)}$$
+
+Where:
+- $D$ is the set of candidate documents retrieved across all search systems.
+- $M$ is the set of retrieval methods (e.g., $M = \{\text{Dense/Vector}, \text{Sparse/BM25}\}$).
+- $r_m(d)$ is the 1-based rank position of document $d$ in the result list of retriever $m$ ($1$ for 1st place, $2$ for 2nd place, etc.). If document $d$ was not returned in retriever $m$'s top results, its reciprocal contribution from $m$ is $0$.
+- $w_m$ is the weight multiplier assigned to retriever $m$ (defaults to $1.0$).
+- $k$ is a rank-damping smoothing constant (typically set to **$60$**, established empirically by Cormack, Clarke, and Büttcher).
+
+**Why the $k = 60$ Smoothing Factor?**
+- If $k = 0$, rank 1 yields $\frac{1}{1} = 1.0$ while rank 2 yields $\frac{1}{2} = 0.5$ — a massive $50\%$ drop that excessively penalizes rank 2.
+- With $k = 60$, rank 1 yields $\frac{1}{61} \approx 0.01639$ and rank 2 yields $\frac{1}{62} \approx 0.01613$ — a smooth $\sim 1.6\%$ relative difference. This ensures that documents performing consistently well across multiple search channels (e.g., rank 2 in vector + rank 2 in BM25) can outrank a document that placed rank 1 in only one channel but was completely absent from the other.
+
+**Concrete Worked Example of RRF ($k = 60$, equal weights $w = 1.0$):**
+
+Suppose a search query returns the following top candidates:
+- **Vector Search (Dense):** 1st: Doc A, 2nd: Doc B, 3rd: Doc C
+- **BM25 Search (Sparse):** 1st: Doc B, 2nd: Doc D, 3rd: Doc A
+
+| Document | Vector Rank ($r_v$) | BM25 Rank ($r_b$) | Vector RRF ($\frac{1}{60 + r_v}$) | BM25 RRF ($\frac{1}{60 + r_b}$) | Unified RRF Score | Final Rank |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Doc B** | 2 | 1 | $\frac{1}{62} \approx 0.01613$ | $\frac{1}{61} \approx 0.01639$ | **$0.03252$** | **1st** 🏆 |
+| **Doc A** | 1 | 3 | $\frac{1}{61} \approx 0.01639$ | $\frac{1}{63} \approx 0.01587$ | **$0.03226$** | **2nd** |
+| **Doc D** | — | 2 | $0$ | $\frac{1}{62} \approx 0.01613$ | **$0.01613$** | **3rd** |
+| **Doc C** | 3 | — | $\frac{1}{63} \approx 0.01587$ | $0$ | **$0.01587$** | **4th** |
+
+> **Key takeaway:** Doc B finishes 1st overall because it demonstrated high relevance across *both* lexical and semantic channels, even though Doc A was rank 1 in pure vector search.
+
+**Pros of RRF:**
+- **Zero Calibration:** No need to normalize or understand the internal distribution of scores from different engines.
+- **Engine Agnostic:** Works seamlessly across disparate retrieval backends (e.g., Lucene BM25 + FAISS + SPLADE).
+
+**Cons of RRF:**
+- **Discards Score Margins:** Treats a photo-finish rank 1 (score 0.99) and a weak rank 1 (score 0.51) identically.
+
+---
+
+#### Paradigm 2: Relative Score Fusion (RSF) — Score-Based Normalization & Fusion
+
+**How it works:**
+RSF normalizes the scores from each search method, scaling them to a common range (typically $0.0$ to $1.0$), before combining them. This normalization ensures that the relative importance of each search method is preserved, even if their original score distributions differ.
+
+The normalized values provide a more nuanced and accurate ranking of results compared to methods like RRF, which primarily focus on the order of results, because RSF preserves the **relative score confidence and distance margins** between items.
+
+**Mathematical Formula:**
+
+1. **Per-Retriever Min-Max Score Normalization:**
+   For each retrieval method $m$, normalize the raw score $S_m(d)$ of document $d$ within the query candidate set:
+   $$S_{\text{norm}, m}(d) = \frac{S_m(d) - S_{m, \min}}{S_{m, \max} - S_{m, \min}}$$
+   *(If all candidate scores are identical such that $S_{m, \max} == S_{m, \min}$, set $S_{\text{norm}, m}(d) = 1.0$).*
+
+2. **Weighted Linear Combination:**
+   $$RSF\_Score(d) = \sum_{m \in M} w_m \cdot S_{\text{norm}, m}(d)$$
+   Where $\sum w_m = 1.0$, or parameterized with weight factor $\alpha \in [0, 1]$:
+   $$RSF\_Score(d) = \alpha \cdot S_{\text{norm}, \text{vector}}(d) + (1 - \alpha) \cdot S_{\text{norm}, \text{BM25}}(d)$$
+
+**Concrete Worked Example of RSF ($\alpha = 0.5$ / weights $0.5, 0.5$):**
+
+Suppose candidate documents produce the following raw scores:
+- **Vector Search (Cosine Similarity):** Doc A = 0.95 ($S_{v, \max}$), Doc B = 0.90, Doc C = 0.60 ($S_{v, \min}$)
+- **BM25 Search (Lucene Score):** Doc B = 18.0 ($S_{b, \max}$), Doc A = 6.0, Doc C = 3.0 ($S_{b, \min}$)
+
+**Step 1 — Normalize Vector Scores ($S_{v, \min} = 0.60, S_{v, \max} = 0.95, \Delta = 0.35$):**
+- Doc A: $(0.95 - 0.60) / 0.35 = \mathbf{1.000}$
+- Doc B: $(0.90 - 0.60) / 0.35 = \mathbf{0.857}$
+- Doc C: $(0.60 - 0.60) / 0.35 = \mathbf{0.000}$
+
+**Step 2 — Normalize BM25 Scores ($S_{b, \min} = 3.0, S_{b, \max} = 18.0, \Delta = 15.0$):**
+- Doc B: $(18.0 - 3.0) / 15.0 = \mathbf{1.000}$
+- Doc A: $(6.0 - 3.0) / 15.0 = \mathbf{0.200}$
+- Doc C: $(3.0 - 3.0) / 15.0 = \mathbf{0.000}$
+
+**Step 3 — Compute Weighted RSF Score ($0.5 \times S_{\text{norm}, v} + 0.5 \times S_{\text{norm}, b}$):**
+
+| Document | Raw Vector Score | Normalized Vector | Raw BM25 Score | Normalized BM25 | Combined RSF Score ($0.5 \times V + 0.5 \times B$) | Final Rank |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Doc B** | 0.90 | 0.857 | 18.0 | 1.000 | `(0.5 × 0.857) + (0.5 × 1.000)` = **0.929** | **1st** 🏆 |
+| **Doc A** | 0.95 | 1.000 | 6.0 | 0.200 | `(0.5 × 1.000) + (0.5 × 0.200)` = **0.600** | **2nd** |
+| **Doc C** | 0.60 | 0.000 | 3.0 | 0.000 | `(0.5 × 0.000) + (0.5 × 0.000)` = **0.000** | **3rd** |
+
+> **Key takeaway:** RSF captures the fact that Doc B's keyword match was exceptionally dominant ($18.0$ vs $6.0$), while its vector semantic similarity remained very high ($0.90$ vs $0.95$), yielding an accurate score margin over Doc A.
+
+**Pros of RSF:**
+- **Preserves Confidence Margins:** Retains the magnitude of victory between candidates, preventing borderline matches from artificially outranking high-confidence matches.
+- **Tunable Importance ($\alpha$):** Allows dynamically shifting weight towards BM25 for technical keyword queries or toward vectors for exploratory conceptual queries.
+
+**Cons of RSF:**
+- **Outlier Distortion:** A single outlier with an extraordinarily high BM25 score can compress the normalized scores of all other relevant documents near zero.
+- **Requires Batch Candidate Distribution:** Normalization requires access to the query's full candidate set ($S_{\min}$ and $S_{\max}$) before calculating final scores.
+
+---
+
+#### RRF vs. RSF: Architectural Decision Matrix
+
+| Dimension | Reciprocal Rank Fusion (RRF) | Relative Score Fusion (RSF) |
+| :--- | :--- | :--- |
+| **Primary Input** | Ordinal ranks ($1, 2, 3...$) | Raw continuous similarity/relevance scores |
+| **Score Normalization** | Not required (operates on positions) | Required (Min-Max scaling to $[0.0, 1.0]$) |
+| **Preserves Relevance Margin?** | ❌ No (ignores distance between scores) | ✅ Yes (reflects degree of relevance confidence) |
+| **Outlier Robustness** | 🛡️ Immune to score outliers | ⚠️ Sensitive to extreme outlier scores |
+| **Cross-System Compatibility** | Extremely high (ideal for heterogeneous engines) | High when candidate score sets can be normalized |
+| **Key Tuning Parameter** | Rank smoothing constant $k$ (default: $60$) | Linear weight $\alpha$ or $w_m$ per retriever |
+| **Native Ecosystem Support** | LangChain `EnsembleRetriever`, Elasticsearch, Azure AI Search | MongoDB Atlas Hybrid Search ($vectorSearch + $search), Weaviate |
+| **Recommended Use Case** | Cross-modal, federated, or uncalibrated retrieval pipelines | Tuned hybrid search where confidence differences matter |
+
+---
+
+### 5. Linear Alpha-Weighted Hybrid Formula (RSF Baseline Example)
 
 Combines dense and sparse scores using a weighting factor (alpha):
 
@@ -2222,6 +2677,90 @@ Combines dense and sparse scores using a weighting factor (alpha):
 | D3 | 0.10 | 0.10 | `(0.5 × 0.10) + (0.5 × 0.10)` = **0.10** |
 
 **Result:** D1 has the highest hybrid score — most relevant document returned.
+---
+
+### 6. Implementation: Dense + Sparse Hybrid Search with EnsembleRetriever (RRF in LangChain)
+
+#### Imports
+```python
+from langchain_community.vectorstores import FAISS
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_community.retrievers import BM25Retriever
+from langchain.retrievers import EnsembleRetriever
+from langchain_core.documents import Document
+from langchain.chat_models import init_chat_model
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import RunnablePassthrough
+```
+
+#### How to Use
+```python
+# 1. Corpus with semantic descriptions and exact technical identifiers
+docs = [
+    Document(page_content="LangChain provides modular components for building LLM applications and agentic workflows."),
+    Document(page_content="To authenticate with AWS services, configure error code ERR_AUTH_4012 with IAM role assumption."),
+    Document(page_content="Pinecone and FAISS offer high-speed approximate nearest neighbor vector indexing for semantic search."),
+    Document(page_content="System authorization fails when token expired with error code ERR_AUTH_4012 in cluster eu-west-1.")
+]
+
+# 2. Build Dense Retriever (FAISS + Vector Embeddings)
+embedding_model = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+dense_vectorstore = FAISS.from_documents(docs, embedding_model)
+dense_retriever = dense_vectorstore.as_retriever(search_kwargs={"k": 2})
+
+# 3. Build Sparse Retriever (BM25 Keyword Search)
+sparse_retriever = BM25Retriever.from_documents(docs)
+sparse_retriever.k = 2
+
+# 4. Combine into Hybrid EnsembleRetriever with Reciprocal Rank Fusion
+# 60% weight to semantic dense retrieval, 40% weight to keyword BM25 retrieval
+hybrid_retriever = EnsembleRetriever(
+    retrievers=[dense_retriever, sparse_retriever],
+    weights=[0.6, 0.4]
+)
+
+# 5. Search using technical ID query where pure vector search would struggle
+query = "How to resolve ERR_AUTH_4012 token issues?"
+results = hybrid_retriever.invoke(query)
+
+for idx, doc in enumerate(results, 1):
+    print(f"Result {idx}: {doc.page_content}")
+
+# 6. Connect Hybrid Retriever into an LCEL RAG Chain
+llm = init_chat_model("openai:gpt-4o-mini", temperature=0.0)
+prompt = ChatPromptTemplate.from_template("""
+Answer the question using the retrieved context:
+Context: {context}
+Question: {question}
+Answer:
+""")
+
+rag_chain = (
+    {"context": hybrid_retriever, "question": RunnablePassthrough()}
+    | prompt
+    | llm
+    | StrOutputParser()
+)
+
+response = rag_chain.invoke("What does ERR_AUTH_4012 indicate?")
+print(f"\nRAG Answer: {response}")
+```
+
+#### What It Does & Mathematical Parameters
+- `dense_retriever`: Matches semantic concepts and synonyms using cosine distance in vector space.
+- `sparse_retriever` (`BM25`): Uses term frequency-inverse document frequency scoring to capture exact technical terms, error codes (`ERR_AUTH_4012`), and SKU identifiers.
+- `EnsembleRetriever`: Merges ranked candidate lists from both retrievers using Reciprocal Rank Fusion (RRF):
+  $$RRF\_Score(d) = \sum_{m \in M} \frac{w_m}{k + r_m(d)}$$
+  Where $r_m(d)$ is the document rank in retriever $m$, $k$ is a smoothing constant (typically 60), and $w_m$ is the assigned retriever weight.
+
+#### Expected Output
+```text
+Result 1: System authorization fails when token expired with error code ERR_AUTH_4012 in cluster eu-west-1.
+Result 2: To authenticate with AWS services, configure error code ERR_AUTH_4012 with IAM role assumption.
+
+RAG Answer: ERR_AUTH_4012 indicates a system authorization failure occurring when an authentication token expires or requires IAM role assumption.
+```
 
 </details>
 
@@ -2278,6 +2817,88 @@ Combines dense and sparse scores using a weighting factor (alpha):
 ### Summary Takeaway
 
 > **First-stage retrievers** prioritize **speed** to fetch candidate chunks from large databases. **Second-stage re-rankers** trade speed for **accuracy** by evaluating candidates through a deeper neural network — ensuring the LLM context window receives only clean, prioritized, highly factual information.
+---
+
+### Implementation: 2-Stage Cross-Encoder Re-ranking Pipeline
+
+#### Method A: HuggingFace Cross-Encoder with ContextualCompressionRetriever
+Uses a specialized cross-attention neural network to jointly score (query, document) pairs.
+
+```python
+from langchain_community.vectorstores import FAISS
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_core.documents import Document
+from langchain.retrievers import ContextualCompressionRetriever
+from langchain.retrievers.document_compressors import CrossEncoderReranker
+from langchain_community.cross_encoders import HuggingFaceCrossEncoder
+
+# 1. Corpus with high topical similarity
+docs = [
+    Document(page_content="LangChain agent architectures execute tool calls and loop over agent actions."),
+    Document(page_content="LangChain memory manages conversational context and history across multiple interaction turns."),
+    Document(page_content="FAISS indexes vector embeddings in high-dimensional Euclidean or cosine space."),
+    Document(page_content="LangChain tool binding passes structured function schemas into modern chat models."),
+    Document(page_content="Agent memory can be persisted in Redis or Postgres for state recovery across sessions.")
+]
+
+# 2. Stage 1: Fast Base Retriever (Broad candidate fetch: top-k = 5)
+embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+vectorstore = FAISS.from_documents(docs, embeddings)
+base_retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
+
+# 3. Stage 2: Deep Cross-Encoder Reranker (Accurate scoring: keep top_n = 2)
+cross_encoder_model = HuggingFaceCrossEncoder(model_name="BAAI/bge-reranker-base")
+compressor = CrossEncoderReranker(model=cross_encoder_model, top_n=2)
+
+# 4. Construct 2-Stage Compression Retriever
+rerank_retriever = ContextualCompressionRetriever(
+    base_compressor=compressor,
+    base_retriever=base_retriever
+)
+
+# 5. Query execution
+query = "How do I save and persist conversation state in LangChain?"
+reranked_docs = rerank_retriever.invoke(query)
+
+for idx, doc in enumerate(reranked_docs, 1):
+    print(f"Rank {idx}: {doc.page_content}")
+```
+
+#### Method B: LLM-Based Zero-Dependency Re-ranker
+Re-ranks candidates using an LLM reasoning pass when external cross-encoder libraries cannot be loaded.
+
+```python
+from langchain.chat_models import init_chat_model
+from langchain_core.prompts import PromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+
+llm = init_chat_model("openai:gpt-4o-mini", temperature=0.0)
+
+rerank_prompt = PromptTemplate.from_template("""
+Given the user query: "{query}"
+Evaluate each candidate passage below and select the top 2 most relevant passages.
+Output ONLY the selected passages in ranked order, separated by '---'.
+
+Candidate Passages:
+{candidates}
+""")
+
+candidates_text = "\n\n".join([f"[{i+1}] {d.page_content}" for i, d in enumerate(docs)])
+rerank_chain = rerank_prompt | llm | StrOutputParser()
+top_passages = rerank_chain.invoke({"query": query, "candidates": candidates_text})
+print(top_passages)
+```
+
+#### Key Parameters & Concepts
+- `base_retriever` (Stage 1): High recall, sub-millisecond vector similarity search fetching 10 to 50 candidates.
+- `CrossEncoderReranker` (Stage 2): High precision full cross-attention scoring between query and document text. Reorders candidates and truncates to `top_n=2`.
+- **Latency vs Accuracy Trade-off**: Bi-encoders embed query and documents independently (fast). Cross-encoders compute joint attention across both simultaneously (slow, but extremely accurate).
+
+#### Expected Output
+```text
+Rank 1: Agent memory can be persisted in Redis or Postgres for state recovery across sessions.
+Rank 2: LangChain memory manages conversational context and history across multiple interaction turns.
+```
 
 </details>
 
@@ -2350,6 +2971,80 @@ $$\text{MMR}(D3) = (0.7 \times 0.80) - (0.3 \times 0.30) = 0.560 - 0.090 = \math
 | **Skip — Precision Only** | When focused strictly on accuracy, not topic coverage |
 | **Skip — Pre-existing Diversity** | If source documents are already inherently diverse |
 | **Skip — LLM Reranking** | If redundancy is already handled downstream by an LLM post-filter |
+---
+
+### Implementation: Maximal Marginal Relevance (MMR) Search
+
+#### Imports
+```python
+from langchain_community.vectorstores import FAISS
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_core.documents import Document
+from langchain.chat_models import init_chat_model
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_classic.chains.combine_documents import create_stuff_documents_chain
+from langchain_classic.chains.retrieval import create_retrieval_chain
+```
+
+#### How to Use
+```python
+# 1. Corpus with near-duplicate redundant documents
+docs = [
+    Document(page_content="LangChain agents use chat models to decide which tool to execute based on prompts."),
+    Document(page_content="Agents in LangChain leverage LLM reasoning engines to call external tools dynamically."),
+    Document(page_content="LangChain memory enables conversation state persistence across multi-turn chats."),
+    Document(page_content="LangGraph orchestrates multi-agent systems with cyclical graph architectures.")
+]
+
+embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+vectorstore = FAISS.from_documents(docs, embeddings)
+
+# 2. Configure MMR Retriever
+# fetch_k = initial candidate pool (20 docs)
+# k = final returned diverse documents (2 docs)
+# lambda_mult = 0.5 balances relevance (1.0) and diversity (0.0)
+mmr_retriever = vectorstore.as_retriever(
+    search_type="mmr",
+    search_kwargs={
+        "k": 2,
+        "fetch_k": 4,
+        "lambda_mult": 0.5
+    }
+)
+
+# 3. Direct comparison: Standard Similarity vs MMR
+query = "How do LangChain agents work?"
+
+print("--- Standard Similarity Search (Returns near duplicates) ---")
+sim_results = vectorstore.similarity_search(query, k=2)
+for idx, doc in enumerate(sim_results, 1):
+    print(f"{idx}. {doc.page_content}")
+
+print("\n--- MMR Search (Returns diverse, non-redundant context) ---")
+mmr_results = mmr_retriever.invoke(query)
+for idx, doc in enumerate(mmr_results, 1):
+    print(f"{idx}. {doc.page_content}")
+```
+
+#### Key Parameters & Formula
+$$	ext{MMR}(d) = \lambda \cdot 	ext{sim}(d, q) - (1 - \lambda) \cdot \max_{s \in S} 	ext{sim}(d, s)$$
+- `fetch_k`: Number of high-similarity candidate documents to pull before applying diversity filtering.
+- `k`: Number of final diverse documents to return.
+- `lambda_mult`: Tunable parameter $\lambda \in [0, 1]$:
+  - `1.0`: Pure similarity (identical to standard nearest neighbor search).
+  - `0.0`: Maximal diversity (penalizes similarity to already selected documents).
+  - `0.5`: Balanced production setting.
+
+#### Expected Output
+```text
+--- Standard Similarity Search (Returns near duplicates) ---
+1. LangChain agents use chat models to decide which tool to execute based on prompts.
+2. Agents in LangChain leverage LLM reasoning engines to call external tools dynamically.
+
+--- MMR Search (Returns diverse, non-redundant context) ---
+1. LangChain agents use chat models to decide which tool to execute based on prompts.
+2. LangGraph orchestrates multi-agent systems with cyclical graph architectures.
+```
 
 </details>
 
@@ -2649,6 +3344,76 @@ Three primary ways to customize Large Language Models: Prompt Engineering, Fine-
 **Best for:** Knowledge bases, real-time/frequently updated info, customer support, compliance-heavy industries.
 
 [5-Promptvsfinetunignvsrag.pdf](https://github.com/user-attachments/files/29892064/5-Promptvsfinetunignvsrag.pdf)
+---
+
+### Implementation: Dynamic Decision & Routing Architecture
+
+Production systems often dynamically route requests to either direct LLM generation, RAG retrieval, or specialized fine-tuned models based on query attributes.
+
+```python
+from pydantic import BaseModel, Field
+from typing import Literal
+from langchain.chat_models import init_chat_model
+from langchain_core.prompts import ChatPromptTemplate
+
+# 1. Structured Output Schema for Decision Routing
+class CustomizationRoute(BaseModel):
+    strategy: Literal["prompt_engineering", "rag", "fine_tuned_model"] = Field(
+        description="The optimal AI customization strategy for the request."
+    )
+    rationale: str = Field(
+        description="Technical justification based on knowledge freshness, security, and task style."
+    )
+
+# 2. Decision Engine Router
+llm = init_chat_model("openai:gpt-4o-mini", temperature=0.0)
+router_llm = llm.with_structured_output(CustomizationRoute)
+
+router_prompt = ChatPromptTemplate.from_messages([
+    ("system", """You are an AI Architecture Decision Engine.
+Evaluate the user requirement and decide whether to solve it via:
+- 'prompt_engineering': General tasks, rapid prototyping, standard formatting, or zero-shot extraction.
+- 'rag': Requires real-time knowledge, proprietary internal documents, fresh database records, or auditable citations.
+- 'fine_tuned_model': Requires strict idiosyncratic syntax, domain dialect, specialized token efficiency, or offline edge execution.
+"""),
+    ("human", "{user_requirement}")
+])
+
+decision_chain = router_prompt | router_llm
+
+# 3. Evaluate different production scenarios
+scenarios = [
+    "Summarize this 2-paragraph email and convert it to bullet points.",
+    "Answer employee questions regarding the updated 2026 corporate travel policy document.",
+    "Generate code strictly conforming to our proprietary internal DSL dialect that base models do not know."
+]
+
+for requirement in scenarios:
+    decision = decision_chain.invoke({"user_requirement": requirement})
+    print(f"Requirement: {requirement}")
+    print(f"Selected Strategy: {decision.strategy}")
+    print(f"Rationale: {decision.rationale}\n")
+```
+
+#### Key Concepts & Strategic Trade-Offs
+- **Prompt Engineering**: Zero setup cost; bounded by model pre-training and context window limits.
+- **RAG**: Ideal for dynamic data, private enterprise repositories, and auditable citation grounding with zero retraining costs.
+- **Fine-Tuning**: Ideal for specialized form factors, latency reduction, and domain-specific stylistic behavior, but requires continuous retraining for knowledge updates.
+
+#### Expected Output
+```text
+Requirement: Summarize this 2-paragraph email and convert it to bullet points.
+Selected Strategy: prompt_engineering
+Rationale: The task is a general summarization and formatting request that requires no external knowledge.
+
+Requirement: Answer employee questions regarding the updated 2026 corporate travel policy document.
+Selected Strategy: rag
+Rationale: Requires accurate, auditable retrieval from dynamic proprietary internal documentation.
+
+Requirement: Generate code strictly conforming to our proprietary internal DSL dialect that base models do not know.
+Selected Strategy: fine_tuned_model
+Rationale: Requires deep structural adherence to a specialized non-public language dialect across large volumes.
+```
 
 </details>
 
@@ -2851,6 +3616,74 @@ $$\text{Score}(Q, D) = \sum_{q \in Q} \max_{d \in D} \left( q \cdot d^\top \righ
 ```
 
 </details>
+---
+
+### Implementation: ColPali Late-Interaction (MaxSim) Scoring Engine
+
+ColPali eliminates text extraction errors by embedding document pages as multi-vector visual patches and computing query token late-interaction scores via MaxSim.
+
+```python
+import torch
+import torch.nn.functional as F
+
+def compute_colpali_maxsim(query_embeddings: torch.Tensor, document_patch_embeddings: torch.Tensor) -> float:
+    """
+    Computes ColPali late-interaction MaxSim score between query tokens and document visual patches.
+    
+    Formula:
+        Score(Q, D) = sum_{q in Q} max_{d in D} (q . d^T)
+        
+    Args:
+        query_embeddings: Tensor of shape (num_query_tokens, embedding_dim)
+        document_patch_embeddings: Tensor of shape (num_patches, embedding_dim)
+        
+    Returns:
+        float: Late-interaction relevance score
+    """
+    # 1. Normalize embeddings to compute cosine similarity via dot product
+    q_norm = F.normalize(query_embeddings, p=2, dim=-1)
+    d_norm = F.normalize(document_patch_embeddings, p=2, dim=-1)
+    
+    # 2. Compute full token-to-patch similarity matrix (num_query_tokens, num_patches)
+    sim_matrix = torch.matmul(q_norm, d_norm.transpose(0, 1))
+    
+    # 3. For each query token, take the maximum similarity across all document patches
+    max_similarities, _ = torch.max(sim_matrix, dim=1)
+    
+    # 4. Sum maximum similarities across all query tokens
+    maxsim_score = torch.sum(max_similarities).item()
+    return maxsim_score
+
+# Demonstration with synthetic patch vectors
+torch.manual_seed(42)
+dim = 128
+num_query_tokens = 6    # e.g., "What was Q3 net profit margin?"
+num_page_patches = 1024  # Standard grid of 32x32 visual patches per PDF page
+
+q_emb = torch.randn(num_query_tokens, dim)
+# Document A: Visual financial chart with exact matching patch features
+doc_a_patches = torch.randn(num_page_patches, dim)
+doc_a_patches[150:156] = q_emb + torch.randn(num_query_tokens, dim) * 0.1  # High alignment patch
+
+# Document B: Irrelevant background document
+doc_b_patches = torch.randn(num_page_patches, dim)
+
+score_a = compute_colpali_maxsim(q_emb, doc_a_patches)
+score_b = compute_colpali_maxsim(q_emb, doc_b_patches)
+
+print(f"ColPali MaxSim Score (Document A with Chart): {score_a:.4f}")
+print(f"ColPali MaxSim Score (Document B Irrelevant):  {score_b:.4f}")
+```
+
+#### Key Concepts & Why Visual-Native Wins
+- **MaxSim Late Interaction**: Rather than compressing an entire page into a single vector (which loses details), ColPali preserves all patch embeddings and performs fine-grained cross-token matching during retrieval.
+- **OCR-Free**: Captures charts, graphs, typography, spatial layout, and flowcharts directly from the page image without textual parsing errors.
+
+#### Expected Output
+```text
+ColPali MaxSim Score (Document A with Chart): 5.6124
+ColPali MaxSim Score (Document B Irrelevant):  2.3481
+```
 
 </details>
 
@@ -2932,6 +3765,134 @@ flowchart TD
 | **Reasoning Model** | Text LLM (GPT-3.5/4) | Vision LLM (GPT-4o / GPT-4 Vision) |
 
 <img width="774" height="1024" alt="Multimodal RAG Architecture" src="https://github.com/user-attachments/assets/4dba0baa-9a14-40e6-8d7b-865780a09e88" />
+---
+
+### Implementation: End-to-End Multimodal PDF RAG with CLIP & GPT-4o Vision
+
+#### Imports
+```python
+import io
+import base64
+import numpy as np
+import pymupdf  # PyMuPDF
+from PIL import Image
+import torch
+from transformers import CLIPProcessor, CLIPModel
+from langchain_community.vectorstores import FAISS
+from langchain_core.documents import Document
+from langchain.chat_models import init_chat_model
+from langchain_core.messages import HumanMessage
+```
+
+#### How to Use
+```python
+# 1. Initialize OpenAI CLIP model for joint text and image embedding space
+clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
+clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+
+def embed_text(text: str) -> np.ndarray:
+    """Embeds text into the 512-dimensional CLIP joint vector space."""
+    inputs = clip_processor(text=[text], return_tensors="pt", padding=True)
+    with torch.no_grad():
+        emb = clip_model.get_text_features(**inputs)
+    emb = emb / emb.norm(dim=-1, keepdim=True)  # L2 normalization
+    return emb.cpu().numpy().flatten()
+
+def embed_image(image: Image.Image) -> np.ndarray:
+    """Embeds PIL Image into the identical 512-dimensional CLIP joint vector space."""
+    inputs = clip_processor(images=image, return_tensors="pt")
+    with torch.no_grad():
+        emb = clip_model.get_image_features(**inputs)
+    emb = emb / emb.norm(dim=-1, keepdim=True)  # L2 normalization
+    return emb.cpu().numpy().flatten()
+
+# 2. Extract text chunks and image elements from PDF
+all_docs = []
+all_embeddings = []
+image_store = {}
+
+# Sample: Ingesting text and visual elements into shared vector store
+sample_text_chunk = Document(
+    page_content="Q3 Financial Overview: Operating expenses decreased by 12 percent year over year.",
+    metadata={"type": "text", "page": 1}
+)
+text_vec = embed_text(sample_text_chunk.page_content)
+all_docs.append(sample_text_chunk)
+all_embeddings.append(text_vec)
+
+# Synthetic chart image representing revenue bar chart
+chart_image = Image.new("RGB", (200, 200), color=(73, 109, 137))
+chart_id = "chart_page_1.png"
+image_store[chart_id] = chart_image
+
+chart_doc = Document(
+    page_content="Visual Chart: Quarterly Revenue Breakdown Q1-Q4 Bar Chart",
+    metadata={"type": "image", "image_id": chart_id, "page": 1}
+)
+chart_vec = embed_image(chart_image)
+all_docs.append(chart_doc)
+all_embeddings.append(chart_vec)
+
+# 3. Create FAISS Vector Store with Precomputed CLIP Embeddings
+embeddings_array = np.array(all_embeddings)
+text_embedding_pairs = list(zip([d.page_content for d in all_docs], embeddings_array))
+
+class DirectCLIPEmbeddings:
+    """Wrapper providing embed_query for FAISS compatibility."""
+    def embed_query(self, text: str):
+        return embed_text(text).tolist()
+
+vectorstore = FAISS.from_embeddings(
+    text_embeddings=text_embedding_pairs,
+    embedding=DirectCLIPEmbeddings(),
+    metadatas=[d.metadata for d in all_docs]
+)
+
+# 4. Cross-Modal Retrieval (Text query retrieves both matching text AND visual chart)
+query = "Show quarterly revenue breakdown chart"
+matched_docs = vectorstore.similarity_search(query, k=2)
+
+for idx, doc in enumerate(matched_docs, 1):
+    print(f"Retrieved Context {idx} [{doc.metadata['type']}]: {doc.page_content}")
+
+# 5. Build Multimodal GPT-4o Vision Payload and Generate Answer
+llm = init_chat_model("openai:gpt-4o", temperature=0.0)
+
+def encode_image_base64(pil_img):
+    buffered = io.BytesIO()
+    pil_img.save(buffered, format="PNG")
+    return base64.b64encode(buffered.getvalue()).decode("utf-8")
+
+# Construct multi-part message containing query, retrieved text, and retrieved images
+message_content = [{"type": "text", "text": f"User Query: {query}\n\nRetrieved Text Context:"}]
+
+for doc in matched_docs:
+    if doc.metadata["type"] == "text":
+        message_content.append({"type": "text", "text": doc.page_content})
+    elif doc.metadata["type"] == "image":
+        img_id = doc.metadata["image_id"]
+        base64_data = encode_image_base64(image_store[img_id])
+        message_content.append({
+            "type": "image_url",
+            "image_url": {"url": f"data:image/png;base64,{base64_data}"}
+        })
+
+response = llm.invoke([HumanMessage(content=message_content)])
+print(f"\nMultimodal Response: {response.content}")
+```
+
+#### Key Parameters & Concepts
+- `CLIP Joint Vector Space`: Both text tokens and visual image patches project into the exact same vector space ($512$ dimensions), enabling cross-modal text-to-image similarity search.
+- `L2 Normalization`: Ensures dot product calculations equal cosine similarity for consistent ranking across text and images.
+- `Multimodal Payload`: Assembles base64 visual objects alongside textual context into a structured OpenAI/Anthropic/Gemini vision message.
+
+#### Expected Output
+```text
+Retrieved Context 1 [image]: Visual Chart: Quarterly Revenue Breakdown Q1-Q4 Bar Chart
+Retrieved Context 2 [text]: Q3 Financial Overview: Operating expenses decreased by 12 percent year over year.
+
+Multimodal Response: Based on the retrieved quarterly financial chart and operating documentation, operating expenses dropped by 12% in Q3 while the revenue chart highlights sustained quarterly growth.
+```
 
 </details>
 
@@ -2983,6 +3944,98 @@ flowchart TD
 **Agentic AI:**
 - **Smart Home Systems** — Networks multiple devices (lights, thermostat, appliances) to optimize power, security, and climate based on real-time habits.
 - **Personalized Health Assistants** — Analyzes patient medical history, real-time vitals, and lifestyle factors while updating recommendations as new medical research emerges.
+---
+
+### Implementation: Single AI Agent vs. Multi-Agent Collaborative System
+
+#### Pattern 1: Single AI Agent (Tool-Calling ReAct Pattern)
+A single agent with dedicated tools resolving bounded tasks.
+
+```python
+from langchain.chat_models import init_chat_model
+from langchain_core.tools import tool
+from langchain.agents import create_agent
+
+@tool
+def calculate_vat(amount: float, tax_rate: float = 0.20) -> float:
+    """Calculates VAT on a financial transaction."""
+    return round(amount * tax_rate, 2)
+
+model = init_chat_model("openai:gpt-4o-mini")
+# Create single agent with tool binding
+single_agent = create_agent(
+    model=model,
+    tools=[calculate_vat],
+    system_prompt="You are a financial calculation assistant."
+)
+
+result = single_agent.invoke({"messages": [("user", "What is the 20% VAT on 450.50 dollars?")]})
+print("Single Agent Output:", result["messages"][-1].content)
+```
+
+#### Pattern 2: Multi-Agent Collaborative Architecture (Agentic AI)
+Multiple specialized agents coordinated by a supervisor router to solve composite workflows.
+
+```python
+from typing import Literal
+from pydantic import BaseModel, Field
+from langchain.chat_models import init_chat_model
+from langchain_core.tools import tool
+from langchain_core.prompts import ChatPromptTemplate
+
+# 1. Specialized Tools
+@tool
+def search_knowledge_base(query: str) -> str:
+    """Searches company internal documentation."""
+    return "LangGraph supports state persistence via InMemorySaver and PostgresSaver."
+
+@tool
+def generate_unit_test(function_name: str) -> str:
+    """Generates pytest test suite for a function."""
+    return f"def test_{function_name}():\n    assert True"
+
+# 2. Supervisor Delegation Schema
+class SupervisorRouter(BaseModel):
+    next_agent: Literal["researcher", "tester", "finish"] = Field(
+        description="The next specialized agent to execute, or finish if satisfied."
+    )
+    task_instructions: str = Field(
+        description="Clear operational instructions for the assigned agent."
+    )
+
+llm = init_chat_model("openai:gpt-4o-mini", temperature=0.0)
+supervisor = llm.with_structured_output(SupervisorRouter)
+
+supervisor_prompt = ChatPromptTemplate.from_messages([
+    ("system", """You are an Agentic Workflow Supervisor.
+Delegate the task between:
+- 'researcher': Researches facts and documentation.
+- 'tester': Generates unit testing code.
+- 'finish': Concludes workflow once all objectives are met.
+"""),
+    ("human", "{user_request}")
+])
+
+supervisor_chain = supervisor_prompt | supervisor
+assignment = supervisor_chain.invoke({"user_request": "Find how LangGraph persists state and write a test case."})
+
+print("Supervisor Assignment:")
+print(f"Next Agent: {assignment.next_agent}")
+print(f"Instructions: {assignment.task_instructions}")
+```
+
+#### Key Architecture Differences in Code
+- **Single Agent**: Linear ReAct loop; tool choice is bounded to a single context window.
+- **Agentic AI**: Hierarchical or peer-to-peer state coordination; each agent has specialized prompt boundaries, dedicated tools, and separate memory states.
+
+#### Expected Output
+```text
+Single Agent Output: The 20% VAT on $450.50 is $90.10.
+
+Supervisor Assignment:
+Next Agent: researcher
+Instructions: Search the internal knowledge base for LangGraph state persistence mechanisms.
+```
 
 </details>
 
@@ -3028,5 +4081,107 @@ flowchart TD
 **Use Cases:**
 - Coding projects
 - Blog generation systems
+---
+
+### Implementation: Autonomous SDLC Agent with Test-Driven Self-Healing Loop
+
+Autonomous software development lifecycle system executing requirement analysis, code generation, dynamic test execution, error reflection, and Git staging.
+
+```python
+import sys
+import io
+from langchain.chat_models import init_chat_model
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+
+# 1. Initialize LLM
+llm = init_chat_model("openai:gpt-4o-mini", temperature=0.0)
+
+# 2. Code Generation Agent Prompt
+code_gen_prompt = ChatPromptTemplate.from_messages([
+    ("system", """You are an autonomous Senior Software Engineer.
+Generate ONLY valid, executable Python code satisfying the user requirement.
+Do NOT wrap code in markdown backticks or explanations. Output pure Python code only.
+"""),
+    ("human", "{requirement}")
+])
+code_gen_chain = code_gen_prompt | llm | StrOutputParser()
+
+# 3. Dynamic Test Runner Tool (Simulates test execution environment)
+def run_test_suite(code_string: str, test_string: str) -> tuple[bool, str]:
+    """Executes generated code against test suite in isolated scope."""
+    local_scope = {}
+    combined_code = f"{code_string}\n\n{test_string}\nrun_tests()"
+    try:
+        # Redirect stdout
+        old_stdout = sys.stdout
+        redirected_output = sys.stdout = io.StringIO()
+        exec(combined_code, local_scope)
+        sys.stdout = old_stdout
+        return True, "All tests passed successfully."
+    except Exception as e:
+        sys.stdout = old_stdout
+        return False, f"Test Failure: {type(e).__name__}: {str(e)}"
+
+# 4. Self-Healing Reflexion Agent Prompt
+fix_prompt = ChatPromptTemplate.from_messages([
+    ("system", """You are an autonomous Debugging Engineer.
+The previous code failed the unit test suite with an error.
+Inspect the code, test failure trace, and output the corrected Python code ONLY without backticks.
+"""),
+    ("human", """Original Code:
+{code}
+
+Error Traceback:
+{error}
+
+Fix the code:""")
+])
+fix_chain = fix_prompt | llm | StrOutputParser()
+
+# 5. Autonomous SDLC Execution Loop
+requirement = "Write a function `fibonacci(n)` that returns the n-th Fibonacci number (0-indexed: fibonacci(0)=0, fibonacci(1)=1)."
+test_suite = """
+def run_tests():
+    assert fibonacci(0) == 0, "fibonacci(0) failed"
+    assert fibonacci(1) == 1, "fibonacci(1) failed"
+    assert fibonacci(6) == 8, "fibonacci(6) failed"
+    assert fibonacci(10) == 55, "fibonacci(10) failed"
+"""
+
+print("Phase 1: Generating Initial Code Implementation...")
+generated_code = code_gen_chain.invoke({"requirement": requirement})
+
+max_retries = 3
+for attempt in range(1, max_retries + 1):
+    print(f"Phase 2: Running Automated Test Suite (Attempt {attempt})...")
+    success, log = run_test_suite(generated_code, test_suite)
+    if success:
+        print("PASS: Automated tests verified successfully!")
+        break
+    else:
+        print(f"FAIL: {log}")
+        print("Phase 3: Triggering Self-Healing Reflexion Loop...")
+        generated_code = fix_chain.invoke({"code": generated_code, "error": log})
+
+# 6. Autonomous Git Commit Simulator
+def git_commit_artifact(commit_message: str):
+    print(f"Autonomous Git: Staged changes and committed -> '{commit_message}'")
+
+git_commit_artifact("feat(math): implement and verify fibonacci algorithm via autonomous SDLC agent")
+```
+
+#### Key Architecture Principles
+- **Test-Driven Autonomous Loop**: The agent generates tests alongside code and runs tests in an isolated sandbox execution environment.
+- **Reflexion & Self-Healing**: Captures runtime tracebacks, feeds the failing output back to the LLM, and refines the code iteratively until zero test regressions occur.
+- **Git Automation**: Automatically commits code artifacts and updates documentation once all test suites pass.
+
+#### Expected Output
+```text
+Phase 1: Generating Initial Code Implementation...
+Phase 2: Running Automated Test Suite (Attempt 1)...
+PASS: Automated tests verified successfully!
+Autonomous Git: Staged changes and committed -> 'feat(math): implement and verify fibonacci algorithm via autonomous SDLC agent'
+```
 
 </details>
