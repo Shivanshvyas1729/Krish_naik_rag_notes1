@@ -12,12 +12,12 @@ How a production RAG & Agentic AI project flows end-to-end. Click any link to ju
 
 | Phase | Name | What It Covers | Jump To |
 | :---: | :--- | :--- | :--- |
-| **1** | Modern Foundations & Agent Engine | `init_chat_model`, streaming, batching, tool binding (`model.bind_tools` vs `create_agent`), messages, structured output, middleware, LCEL | [Phase 1](#topic-1-langchain-v11) |
+| **1** | LangChain Architecture & Core Engine | Architecture & SDKs, Chat Models vs LLMs, Prompt Templates & Engineering, Output Parsers, Structured Output, LCEL & Runnables, Memory & Session Handling, Function Calling | [Phase 1](#topic-1-langchain-v11) |
 | **2** | RAG Fundamentals & Document Ingestion | Ingestion pipeline, 10 chunking strategies (Fixed, Sentence, Paragraph, Recursive, Structure, Sliding, Token, Agentic, Hybrid), business impact | [Phase 2](#topic-2-rag) |
 | **3** | Semantic Chunking | Meaning-aware splitting via sentence embedding distance spikes and similarity threshold breakpoints | [Phase 3](#topic-5-semantic-chunking) |
 | **4** | Vector Storage | Vector Stores vs Vector DBs, ChromaDB, FAISS, InMemory, Pinecone, AstraDB, Qdrant, distance metrics | [Phase 4](#topic-4-vector-db) |
 | **5** | Pre-Retrieval Query Transformation | Query Expansion (LLM synonyms), Query Decomposition (multi-hop), HyDE (hypothetical doc embeddings) | [Query Expansion](#topic-9-query-expansion) · [Decomposition](#topic-10-query-decomposition) · [HyDE](#topic-11-hyde) |
-| **6** | Advanced Retrieval & Ranking | Hybrid Search (Dense + BM25, RRF & RSF Fusion), Cross-Encoder Re-ranking, MMR | [Hybrid Search](#topic-6-hybrid-search) · [Re-ranking](#topic-7-reranking) · [MMR](#topic-8-mmr) |
+| **6** | Advanced Retrieval & Ranking | Hybrid Search (Dense + BM25, RRF & RSF Fusion), Cross-Encoder Re-ranking, MMR, Parent Document Retrieval (Small-to-Big) | [Hybrid Search](#topic-6-hybrid-search) · [Re-ranking](#topic-7-reranking) · [MMR](#topic-8-mmr) · [Parent Document](#topic-parent-retrieval) |
 | **7** | RAG Chain Construction & Memory | LCEL RAG chains, conversational memory with `create_history_aware_retriever`, pre-built chains | [Phase 7](#topic-7-rag-chains) |
 | **7.1** | `format_docs` Decision Guide | When to use vs. when NOT to use `format_docs` (LCEL vs. pre-built helpers) | [format_docs Guide](#format-docs-deep-dive) |
 | **8** | Fine-Tuning vs RAG | Decision matrix: knowledge freshness, hallucination reduction, cost | [Phase 8](#topic-3-finetuning-vs-rag) |
@@ -29,7 +29,16 @@ How a production RAG & Agentic AI project flows end-to-end. Click any link to ju
 
 ## Topic Index
 
-1. [Phase 1 — LangChain v1.1 & LangGraph Agent Architecture](#topic-1-langchain-v11)
+1. [Phase 1 — LangChain Architecture, Models, Prompts, LCEL, Parsers & Memory](#topic-1-langchain-v11)
+   - [1.1 LangChain Architecture & Package Ecosystem Stack](#langchain-architecture)
+   - [1.2 Models vs. Chat Models & Universal SDK Initializers (`init_chat_model`, `ChatOpenAI`, etc.)](#models-and-chat-models)
+   - [1.3 Prompt Templates & Prompt Engineering in LangChain](#prompts-and-engineering)
+   - [1.4 Tool Anatomy, Schemas & Function Calling](#tools-and-function-calling)
+   - [1.5 Canonical Message State & Token Tracking](#canonical-messages)
+   - [1.6 Output Parsers & Enforced Schema Structured Outputs](#output-parsers-and-structured-output)
+   - [1.7 Chains, LCEL & The Runnable Protocol](#lcel-and-runnables)
+   - [1.8 Memory, Chat History, Conversation Management & Session Handling](#memory-and-sessions)
+   - [1.9 Stateful Middleware & Human-in-the-Loop](#middleware-and-hitl)
 2. [Phase 2 — RAG: Fundamentals & 10 Chunking Strategies](#topic-2-rag)
 3. [Phase 3 — Semantic Chunking](#topic-5-semantic-chunking)
 4. [Phase 4 — Vector Stores & Vector Databases](#topic-4-vector-db)
@@ -41,6 +50,7 @@ How a production RAG & Agentic AI project flows end-to-end. Click any link to ju
    - [6.1 Hybrid Search (Dense + Sparse Retrieval, BM25, RRF & RSF Fusion)](#topic-6-hybrid-search)
    - [6.2 Re-ranking (Cross-Encoder)](#topic-7-reranking)
    - [6.3 MMR — Maximal Marginal Relevance](#topic-8-mmr)
+   - [6.4 Parent Document Retrieval (Small-to-Big Hierarchical Search)](#topic-parent-retrieval)
 7. [Phase 7 — RAG Chains, Conversational Memory & format_docs Guide](#topic-7-rag-chains)
    - [7.1 LCEL Custom RAG Pipelines & Conversational Chains](#chroma-rag-chains)
    - [7.2 format_docs Deep-Dive: When to Use vs. When NOT to Use](#format-docs-deep-dive)
@@ -53,29 +63,70 @@ How a production RAG & Agentic AI project flows end-to-end. Click any link to ju
 
 ---
 
-<details><summary><a id="topic-1-langchain-v11" name="topic-1-langchain-v11"></a>Phase 1 — LangChain v1.1 & LangGraph Agent Architecture</summary>
+<details><summary><a id="topic-1-langchain-v11" name="topic-1-langchain-v11"></a>Phase 1 — LangChain Architecture, Models, Prompts, LCEL, Parsers & Memory</summary>
 
-# LangChain v1.1 & LangGraph Agent Architecture
+# LangChain Architecture, Models, Prompts, LCEL, Parsers & Memory
 
-This module covers the modern, production-grade LangChain v1.1/1.x API built on top of the LangGraph execution engine.
+This module serves as the **definitive production-grade guide** for modern **LangChain v1.1/1.x** and **LangGraph**. It unifies core component abstractions, execution models, declarative LCEL pipelines, memory management, and agent graph runtimes into structured chapters.
 
 ---
 
-## Notebook Overview
+## 📋 Chapter Index
 
-| Notebook | Topic | Key APIs |
+| Chapter | Component & Topic | Core Concepts & Key APIs |
 | :--- | :--- | :--- |
-| `1-langchainintro.ipynb` | Agent Foundations & Graph Engine | `create_agent()`, `@tool`, `agent.invoke()` |
-| `2-modelintegration.ipynb` | Universal Model Integration, Streaming & Batching | `init_chat_model()`, `ChatOpenAI()`, `ChatGroq()`, `ChatGoogleGenerativeAI()`, `model.stream()`, `model.batch()` |
-| `3-tools.ipynb` | Tool Definition, Schemas & Execution Loops | `@tool`, `model.bind_tools()`, `ai_msg.tool_calls`, `ToolMessage` |
-| `4-messages.ipynb` | Canonical Message Schema & Token Tracking | `SystemMessage`, `HumanMessage`, `AIMessage`, `ToolMessage`, `usage_metadata` |
-| `5-structuredoutput.ipynb` | Enforced Schema Parsing & Validation | `with_structured_output()`, `response_format`, `Pydantic`, `TypedDict`, `@dataclass` |
-| `6-middleware.ipynb` | Agent Middleware, Memory & Human-in-the-Loop | `SummarizationMiddleware`, `HumanInTheLoopMiddleware`, `InMemorySaver`, `Command` |
-| LCEL Core | Declarative Composition & Runnable Protocol | `\|` (pipe), `Runnable`, `invoke()`, `ainvoke()`, `batch()`, `stream()` |
+| **1.1** | [LangChain Architecture & Ecosystem Stack](#langchain-architecture) | The 4 architectural layers: `langchain-core`, `langchain`, `langchain-community`, Partner packages, `langgraph`, `langsmith` |
+| **1.2** | [Agent Foundations](#agent-foundations) | `create_agent()`, `@tool`, `agent.invoke()`, LangGraph cyclic execution engine |
+| **1.3** | [Models, Chat Models & Universal SDK Initializers](#models-and-chat-models) | `init_chat_model()`, `ChatOpenAI()`, `ChatGroq()`, `ChatGoogleGenerativeAI()`, `ChatAnthropic()`, Native SDKs, `invoke()`, `stream()`, `batch()`, `temperature`, `top_p`, `max_tokens` |
+| **1.4** | [Prompt Templates & Prompt Engineering](#prompts-and-engineering) | `PromptTemplate`, `ChatPromptTemplate.from_messages()`, `MessagesPlaceholder`, `.partial()`, `FewShotChatMessagePromptTemplate`, CoT patterns |
+| **1.5** | [Tool Anatomy, Schemas & Function Calling](#tools-and-function-calling) | `@tool`, `model.bind_tools()`, `tool_choice`, `ai_msg.tool_calls`, `ToolMessage`, parallel tool calling |
+| **1.6** | [Canonical Message State & Token Tracking](#canonical-messages) | `SystemMessage`, `HumanMessage`, `AIMessage`, `ToolMessage`, `usage_metadata` |
+| **1.7** | [Output Parsers & Enforced Schema Structured Outputs](#output-parsers-and-structured-output) | `StrOutputParser()`, `JsonOutputParser()`, `PydanticOutputParser()`, `model.with_structured_output()`, Pydantic v2, `TypedDict`, `@dataclass` |
+| **1.8** | [Chains, LCEL & The Runnable Protocol](#lcel-and-runnables) | Declarative pipe `\|`, `RunnablePassthrough` & `.assign()`, `RunnableParallel`, `RunnableLambda`, `RunnableBranch`, `RunnableConfig` |
+| **1.9** | [Memory, Chat History, Conversation & Session Handling](#memory-and-sessions) | `ChatMessageHistory`, `RunnableWithMessageHistory` (`session_id`), `trim_messages()`, LangGraph `InMemorySaver` (`thread_id`), `create_history_aware_retriever` |
+| **1.10** | [Stateful Middleware & Human-in-the-Loop](#middleware-and-hitl) | `SummarizationMiddleware`, `HumanInTheLoopMiddleware`, `InMemorySaver`, `Command` |
 
 ---
 
-## 1. Agent Foundations (`1-langchainintro.ipynb`)
+## 1.1 LangChain Architecture & Ecosystem Stack <a id="langchain-architecture" name="langchain-architecture"></a>
+
+Modern LangChain is decoupled into a modular, multi-tier architectural stack to eliminate dependency bloat and guarantee enterprise reliability.
+
+```
+┌────────────────────────────────────────────────────────┐
+│                      LangSmith                         │  (Observability, Tracing, Eval, Telemetry)
+└──────────────────────────┬─────────────────────────────┘
+                           │
+┌──────────────────────────▼─────────────────────────────┐
+│                      LangGraph                         │  (Stateful Cyclical Graphs, Checkpointing, Multi-Agent)
+└──────────────────────────┬─────────────────────────────┘
+                           │
+┌──────────────────────────▼─────────────────────────────┐
+│                      LangChain                         │  (High-Level Chains, Retrieval Algorithms, Pre-built Agents)
+└──────────┬───────────────────────────────┬─────────────┘
+           │                               │
+┌──────────▼──────────────┐   ┌────────────▼─────────────┐
+│   langchain-community   │   │     Partner Packages     │  (langchain-openai, langchain-groq, langchain-chroma, etc.)
+└──────────┬──────────────┘   └────────────┬─────────────┘
+           │                               │
+┌──────────▼───────────────────────────────▼─────────────┐
+│                    langchain-core                      │  (Runnables, LCEL, Messages, Base Types, Document)
+└────────────────────────────────────────────────────────┘
+```
+
+### The 5 Architectural Layers
+
+1. **`langchain-core`**: The foundational bedrock. Contains base interfaces (`BaseChatModel`, `PromptTemplate`, `BaseMessage`, `Document`, `BaseRetriever`), the Runnable protocol, and the LCEL pipe compiler. Has zero bloated dependencies.
+2. **`langchain`**: The main orchestration library. Houses general cognitive architecture patterns, pre-built RAG chains (`create_retrieval_chain`, `create_history_aware_retriever`, `ParentDocumentRetriever`), and agent factories.
+3. **`langchain-community` & Partner Packages**:
+   - `langchain-community`: Community-contributed third-party integrations.
+   - Dedicated Partner Packages (`langchain-openai`, `langchain-groq`, `langchain-anthropic`, `langchain-google-genai`, `langchain-chroma`, `langchain-pinecone`): Lightweight, first-party maintained wrappers optimized for specific model providers and vector databases.
+4. **`langgraph`**: The stateful execution engine. Replaces legacy execution loops with cyclical graphs, persistent checkpointers, and multi-agent coordination.
+5. **`langsmith`**: Production observability platform for distributed tracing, token accounting, latency analysis, and LLM evaluation.
+
+---
+
+## 1.2 Agent Foundations (`1-langchainintro.ipynb`) <a id="agent-foundations" name="agent-foundations"></a>
 
 **Definition:** An AI Agent uses an LLM as a central reasoning engine to decide which tools to call, what arguments to extract, and how to sequence actions to satisfy a request.
 
@@ -103,7 +154,7 @@ from langchain_core.tools import tool
 
 @tool
 def get_weather(city: str) -> str:
-    # Get the weather for a city
+    """Get current weather for a specified city."""
     return f"The weather in {city} is sunny."
 
 agent = create_agent(
@@ -114,146 +165,335 @@ agent = create_agent(
 
 # Accepts messages in OpenAI or LangChain format
 response = agent.invoke({"messages": [{"role": "user", "content": "What is the weather in New York?"}]})
-print(response["messages"])
+print(response["messages"][-1].content)
 ```
 
 ---
 
-## 2. Universal Model Integration (`2-modelintegration.ipynb`)
+## 1.3 Models, Chat Models & Universal SDK Initializers (`2-modelintegration.ipynb`) <a id="models-and-chat-models" name="models-and-chat-models"></a>
 
-<details>
-<summary>Version Note — LangChain v0.3: Direct provider imports are deprecated</summary>
-<ul>
-<li><strong>Deprecated:</strong> Importing <code>ChatOpenAI</code>, <code>ChatGroq</code>, etc. directly from <code>langchain.chat_models</code> as the primary initialization pattern.</li>
-<li><strong>Current standard:</strong> Use <code>init_chat_model()</code> with a provider prefix string — makes provider switching seamless without changing application logic.</li>
-<li>Old chains like <code>ConversationalRetrievalChain</code> are also deprecated — replaced by LCEL-based <code>create_stuff_documents_chain</code> + <code>create_retrieval_chain</code>.</li>
-</ul>
-</details>
+### Text LLMs vs. Chat Models
 
-**Core idea:** LangChain v1.1 decouples provider code from application logic using a universal model initializer and standardized execution modes.
+| Dimension | Legacy Text LLMs (`LLM`) | Modern Chat Models (`BaseChatModel`) |
+| :--- | :--- | :--- |
+| **Input / Output** | `str` $\to$ `str` | `list[BaseMessage]` $\to$ `AIMessage` |
+| **API Architecture** | Legacy completion endpoints (`/v1/completions`) | Chat completion endpoints (`/v1/chat/completions`) |
+| **Capabilities** | Plain text generation | System personas, multimodal inputs, function/tool calling, structured outputs |
+| **LangChain Base Class** | `langchain_core.language_models.llms.LLM` | `langchain_core.language_models.chat_models.BaseChatModel` |
 
-### 1. Universal Model Initialization (`init_chat_model`)
+---
 
-Instead of importing provider classes directly, `init_chat_model()` instantiates any LLM via string identifiers. Provider migration becomes a one-line change.
+### Universal Model Initialization (`init_chat_model`)
+
+Instead of hardcoding provider classes, `init_chat_model()` instantiates any LLM via string identifiers. Migrating from OpenAI to Groq or Gemini requires only changing a string:
 
 ```python
 from langchain.chat_models import init_chat_model
 
-model_openai = init_chat_model("gpt-4o-mini")
-model_groq   = init_chat_model("groq:llama-3.3-70b-versatile")
-model_gemini = init_chat_model("google_genai:gemini-1.5-flash")
+# 1. Universal Factory (Recommended Standard)
+model_openai = init_chat_model("gpt-4o-mini", temperature=0.0)
+model_groq   = init_chat_model("groq:llama-3.3-70b-versatile", temperature=0.1)
+model_gemini = init_chat_model("google_genai:gemini-1.5-flash", temperature=0.2)
+model_claude = init_chat_model("anthropic:claude-3-5-sonnet-latest", temperature=0.0)
 ```
 
-### 2. Streaming Output (`model.stream()`)
-
-LLMs generate text token by token. `model.stream()` uses HTTP chunked transfer to yield `AIMessageChunk` objects in real time, eliminating user wait time (reduces Time-To-First-Token).
+### Dedicated Partner SDK Classes
 
 ```python
-for chunk in model.stream("Explain quantum computing in 2 sentences"):
+# 2. Partner SDK Direct Initialization
+from langchain_openai import ChatOpenAI
+from langchain_groq import ChatGroq
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_anthropic import ChatAnthropic
+
+chat_openai = ChatOpenAI(
+    model="gpt-4o-mini",
+    temperature=0.0,
+    max_tokens=2000,
+    timeout=30,
+    max_retries=3,
+    api_key="sk-...",               # Defaults to os.getenv("OPENAI_API_KEY")
+    base_url="https://api.openai.com/v1"  # Customizable for Euron / vLLM / Ollama
+)
+
+chat_groq = ChatGroq(model="llama-3.3-70b-versatile", temperature=0.2)
+chat_gemini = ChatGoogleGenerativeAI(model="gemini-1.5-flash")
+chat_claude = ChatAnthropic(model="claude-3-5-sonnet-20241022")
+```
+
+### Native Provider SDKs vs. LangChain Wrappers
+
+| Feature | Direct Native SDK (`openai`, `groq`) | LangChain Chat Models (`init_chat_model`, `ChatOpenAI`) |
+| :--- | :--- | :--- |
+| **Dependencies** | Minimal (single SDK) | Framework-level (`langchain-core`) |
+| **LCEL Pipe Composition** | ❌ Manual glue code | ✅ Native `\|` pipe runnable protocol |
+| **Universal Switching** | ❌ Code rewrite per provider | ✅ 1-line provider string switch |
+| **Tool Calling & Parsing** | ❌ Manual JSON Schema handling | ✅ `@tool`, `.bind_tools()`, `.with_structured_output()` |
+| **Fallback & Tracing** | ❌ Manual retry and telemetry | ✅ Integrated LangSmith tracing and fallback chains |
+
+---
+
+### The 6 Core Execution Methods
+
+Every LangChain chat model implements the standard Runnable interface:
+
+```python
+# 1. Synchronous Single Invocation
+response = model.invoke("What is machine learning?")
+
+# 2. Asynchronous Single Invocation (FastAPI / Asyncio)
+response = await model.ainvoke("What is deep learning?")
+
+# 3. Synchronous Real-Time Streaming
+for chunk in model.stream("Write a 3-sentence summary of AI"):
     print(chunk.content, end="", flush=True)
-```
 
-### 3. Batch Processing (`model.batch()`)
+# 4. Asynchronous Streaming (WebSockets / SSE endpoints)
+async for chunk in model.astream("Explain quantum computing"):
+    yield chunk.content
 
-Dispatches multiple independent prompts in parallel using async thread pools. Drastically reduces total latency compared to sequential `for` loops (more requests processed in the same time).
+# 5. Synchronous Batch Processing (Parallel worker pool)
+responses = model.batch(
+    ["Explain backprop", "Explain dropout", "Explain batchnorm"],
+    config={"max_concurrency": 3}
+)
 
-```python
-responses = model.batch(["What is 2+2?", "What is 10*5?", "What is 100/4?"])
+# 6. Asynchronous Batch Processing
+responses = await model.abatch(["Task 1", "Task 2", "Task 3"])
 ```
 
 ---
 
-## 3. Tool Anatomy, Schemas & Binding (`3-tools.ipynb`)
+### Model Parameters & Sampling Mechanics (Temperature, Top P, Max Tokens)
+
+Inference-time model parameters control how an LLM converts raw unbounded logits into probabilities and selects output tokens autoregressively.
+
+#### The Autoregressive Token Generation Pipeline
+
+```
+Prompt Tokens ──▶ [Transformer Forward Pass] ──▶ Raw Logits Vector z ∈ ℝ^|V|
+                                                         │
+                                                         ▼
+                                            [Temperature Scaling: z_i / T]
+                                                         │
+                                                         ▼
+                                           [Softmax: P(w_i) = e^(z_i/T) / ∑ e^(z_j/T)]
+                                                         │
+                                                         ▼
+                                          [Top-P / Nucleus Filtering: ∑ P ≥ p]
+                                                         │
+                                                         ▼
+                                             [Sample Next Token w*]
+                                                         │
+                                                         ▼
+                                         [Append w* & Repeat until EOS / Max Tokens]
+```
+
+#### Core Hyperparameters Reference
+
+| Parameter | Type | Default | Typical Range | Primary Effect | Production RAG Recommendation |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `temperature` | `float` | `0.7` | `0.0` – `2.0` | Controls sharpness of the probability distribution (randomness vs determinism) | **`0.0` – `0.2`** (strictly factual, grounds answers in retrieved context) |
+| `top_p` (Nucleus) | `float` | `1.0` | `0.0` – `1.0` | Dynamically limits token candidates to top cumulative probability mass $p$ | **`0.9` – `1.0`** (cuts off low-probability bizarre tokens) |
+| `max_tokens` / `max_completion_tokens` | `int` | Provider default | `1` – Model Limit | Hard ceiling on generated response tokens (does not include prompt tokens) | **`1000` – `4000`** (sized to expected answer length + buffer) |
+| `presence_penalty` | `float` | `0.0` | `-2.0` – `2.0` | Penalizes tokens based on whether they appeared at all in text (encourages topic shifts) | `0.0` (leave default in RAG to avoid avoiding key technical terms) |
+| `frequency_penalty`| `float` | `0.0` | `-2.0` – `2.0` | Penalizes tokens based on their frequency (prevents repetitive phrasing loops) | `0.0` – `0.2` |
+| `stop` | `list[str]` | `None` | Strings | Sequence of tokens that immediately halts text generation | Use for agent loop termination or markdown fences |
+
+#### Deep Dive: Temperature ($T$)
+
+$$P(w_i) = \frac{\exp(z_i / T)}{\sum_{j=1}^{|V|} \exp(z_j / T)}$$
+
+- **$T \to 0$ (Greedy / Argmax Decoding):** Logit differences become infinitely magnified. The single most probable token receives probability $\approx 1.0$, rendering output completely deterministic and reproducible.
+- **$0.1 \le T \le 0.3$ (Factual & Analytical):** Retains high confidence while allowing minor linguistic smoothing. Essential for **RAG pipelines**, SQL generation, code compilation, and medical/legal Q&A.
+- **$0.7 \le T \le 0.9$ (Conversational Balance):** Standard default for chatbots, general dialogue, and creative summarization.
+- **$T \ge 1.0$ (High Entropy / Creative):** Flattens logit variance, increasing the probability of unconventional tokens. Prone to severe hallucinations and incoherent syntax if $T > 1.4$.
+
+> [!IMPORTANT]
+> **The RAG Temperature Rule:** In production RAG systems, **always set `temperature=0.0` (or $\le 0.2$)**. High temperature causes the model to ignore retrieved context chunks and invent unverifiable facts (confabulation).
+
+#### Deep Dive: Top P (Nucleus Sampling)
+
+$$\sum_{i=1}^{k^*} P(w_{(i)}) \ge p$$
+
+where $P(w_{(1)}) \ge P(w_{(2)}) \ge \dots \ge P(w_{(|V|)})$. All tokens with index $> k^*$ are truncated to probability 0, and the remaining distribution is renormalized.
+
+- **Top K ($K=50$):** Keeps a fixed number of tokens regardless of uncertainty.
+- **Top P ($p=0.90$):** Dynamically adjusts candidate pool size $k^*$. When confident, the nucleus shrinks to 1 token. When uncertain, the nucleus expands automatically.
+
+> [!TIP]
+> **Golden Tuning Rule:** Alter **either** `temperature` or `top_p`, **not both simultaneously**. Standard practice: keep `top_p = 1.0` and tune `temperature`.
+
+---
+
+## 1.4 Prompt Templates & Prompt Engineering in LangChain <a id="prompts-and-engineering" name="prompts-and-engineering"></a>
+
+Prompts translate raw variables and context documents into structured instructions for the LLM.
+
+### String Prompts (`PromptTemplate`) vs. Chat Prompts (`ChatPromptTemplate`)
+
+```python
+from langchain_core.prompts import PromptTemplate, ChatPromptTemplate, MessagesPlaceholder
+
+# 1. Plain String PromptTemplate (Legacy / Simple string interpolation)
+str_prompt = PromptTemplate.from_template("Translate the following text to French: {text}")
+formatted_str = str_prompt.format(text="Hello, how are you?")
+
+# 2. Structured ChatPromptTemplate (Standard for Multi-Turn Chat & Agents)
+chat_prompt = ChatPromptTemplate.from_messages([
+    ("system", "You are an expert financial analyst. Answer with concise, verified facts."),
+    MessagesPlaceholder(variable_name="chat_history"), # Injects conversational memory list
+    ("human", "{question}")
+])
+```
+
+### Dynamic Variables & Partial Prompting (`.partial()`)
+
+Allows pre-filling certain prompt variables ahead of runtime execution:
+
+```python
+# Partial with static string
+analyst_prompt = chat_prompt.partial(company="Apple Inc.")
+
+# Partial with dynamic callable (e.g. current date injection)
+from datetime import datetime
+time_aware_prompt = ChatPromptTemplate.from_messages([
+    ("system", "Current timestamp: {current_time}"),
+    ("human", "{query}")
+]).partial(current_time=lambda: datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+```
+
+### Few-Shot Prompt Templates
+
+In-context examples dramatically increase LLM accuracy on reasoning and formatting tasks:
+
+```python
+from langchain_core.prompts import FewShotChatMessagePromptTemplate
+
+examples = [
+    {"input": "2+2", "output": "4"},
+    {"input": "2+3", "output": "5"}
+]
+
+example_prompt = ChatPromptTemplate.from_messages([
+    ("human", "{input}"),
+    ("ai", "{output}")
+])
+
+few_shot_prompt = FewShotChatMessagePromptTemplate(
+    example_prompt=example_prompt,
+    examples=examples
+)
+
+final_prompt = ChatPromptTemplate.from_messages([
+    ("system", "You are an accurate math assistant."),
+    few_shot_prompt,
+    ("human", "{input}")
+])
+```
+
+### Prompt Engineering Best Practices in LangChain
+1. **Explicit Delimiters:** Use markdown fences (`"""`, `### Context:`, `### Question:`) to prevent prompt injection attacks.
+2. **System Role Steering:** Set persona, style constraints, and boundary behavior in `("system", "...")`.
+3. **Chain-of-Thought (CoT):** Include phrases like `"Think step by step before arriving at your final answer"` to activate reasoning tokens.
+4. **Negative Guardrails:** Explicitly command: `"If the context does not contain the answer, reply 'I do not have enough information'. Do NOT speculate."`
+
+---
+
+## 1.5 Tool Anatomy, Schemas & Function Calling (`3-tools.ipynb`) <a id="tools-and-function-calling" name="tools-and-function-calling"></a>
 
 **A Tool is a pairing of:**
-1. **JSON Schema** — function name, docstring description, and argument types.
+1. **JSON Schema** — function name, docstring description, parameter types, and required fields.
 2. **Execution Logic** — the underlying Python function or coroutine.
 
 The `@tool` decorator auto-inspects Python type hints (`city: str`) and docstrings to generate the JSON schema expected by LLM tool-calling APIs.
 
-### Both Methods to Bind Tools
+> [!IMPORTANT]
+> **CRITICAL CONCEPT — LLMs DO NOT EXECUTE CODE:**
+> The language model **never executes** your Python function. The model only detects user intent, validates parameters against the JSON Schema, and outputs a formatted JSON payload containing the function name and extracted arguments (`tool_calls`). **Your Python code / agent engine executes the function** and supplies results back to the model as a `ToolMessage`.
 
-| Feature | Method 1: `model.bind_tools()` | Method 2: `create_agent(tools=[...])` |
-| :--- | :--- | :--- |
-| **Execution Loop** | Manual — developer invokes tool function | Automatic — LangGraph engine handles the loop |
-| **Message State** | Manual `ToolMessage` creation & append | Automatic `ToolMessage` state tracking |
-| **Control Level** | Fine-grained (custom UI callbacks, single-step) | High-level (multi-step autonomous execution) |
+#### The 4-Step Function Calling Execution Lifecycle
 
-**Method 1 — Direct Model Binding (`model.bind_tools()`)**
+```
+[User Query] ──▶ 1. LLM Ingestion + Tool Schemas Bound
+                        │
+                        ▼
+                 2. Model generates AIMessage with tool_calls:
+                    [{"name": "get_weather", "args": {"city": "Boston"}, "id": "call_123"}]
+                        │
+                        ▼
+                 3. Application executes local Python function:
+                    result = get_weather.invoke({"city": "Boston"})
+                        │
+                        ▼
+                 4. Application passes ToolMessage back to LLM:
+                    ToolMessage(content="Sunny, 72°F", tool_call_id="call_123")
+                        │
+                        ▼
+                 5. LLM synthesizes final answer grounded in tool output:
+                    "The weather in Boston is currently sunny and 72°F."
+```
 
-Use when you need full control over each step (e.g., custom logging, single-turn UIs).
+#### Method 1 — Direct Model Binding & Manual Execution (`model.bind_tools()`)
 
 ```python
 from langchain.chat_models import init_chat_model
 from langchain_core.tools import tool
+from langchain_core.messages import HumanMessage, ToolMessage
 
 @tool
 def get_weather(city: str) -> str:
-    """Get the weather for a city."""
-    return f"The weather in {city} is sunny."
+    """Get the current weather for a specified city.
+    
+    Args:
+        city: The name of the city (e.g., 'Boston', 'London')
+    """
+    return f"The weather in {city} is sunny and 72°F."
 
-model = init_chat_model("gpt-4o-mini")
+model = init_chat_model("gpt-4o-mini", temperature=0.0)
 model_with_tools = model.bind_tools([get_weather])
 
-# Step 1: Model decides which tool to call
-messages = [{"role": "user", "content": "What's the weather in Boston?"}]
+# Step 1: Model decides which tool to call based on user query
+messages = [HumanMessage(content="What's the weather in Boston?")]
 ai_msg = model_with_tools.invoke(messages)
 messages.append(ai_msg)
 
-# Step 2: Execute tools manually and collect results
+# Step 2: Execute tools locally and collect results
 for tool_call in ai_msg.tool_calls:
-    tool_result = get_weather.invoke(tool_call)
-    messages.append(tool_result)
+    if tool_call["name"] == "get_weather":
+        tool_result = get_weather.invoke(tool_call["args"])
+        # ToolMessage connects output to the specific tool call via tool_call_id
+        messages.append(ToolMessage(content=str(tool_result), tool_call_id=tool_call["id"]))
 
-# Step 3: Pass tool results back for the final response
+# Step 3: Pass tool execution results back to model for final synthesized answer
 final_response = model_with_tools.invoke(messages)
-print(final_response.content)
-# "The weather in Boston is sunny."
+print("Final Answer:", final_response.content)
 ```
 
-**Method 2 — Automatic Agent Loop (`create_agent(tools=[...])`)**
-
-Use when you want the agent to handle the full LLM → Tool Call → Execution → Final Answer loop automatically.
+#### Parallel Tool Calling & `tool_choice` Controls
 
 ```python
-from langchain.agents import create_agent
-from langchain_core.tools import tool
+# 1. "auto" (default): Model decides whether to call tools or respond with text
+model_auto = model.bind_tools([get_weather], tool_choice="auto")
 
-@tool
-def get_weather(city: str) -> str:
-    # Get the weather for a city
-    return f"The weather in {city} is sunny."
+# 2. "any" (or "required"): Forces the model to call AT LEAST ONE tool
+model_forced = model.bind_tools([get_weather], tool_choice="any")
 
-# Agent automatically runs: LLM -> Tool Call -> Function Exec -> ToolMessage -> Final Answer
-agent = create_agent(
-    model="gpt-4o-mini",
-    tools=[get_weather],
-    system_prompt="You are a helpful assistant."
-)
-result = agent.invoke({"messages": [{"role": "user", "content": "What's the weather in Boston?"}]})
+# 3. Explicit Tool: Forces model to call a specific tool
+model_specific = model.bind_tools([get_weather], tool_choice="get_weather")
 ```
 
 ---
 
-## 4. Canonical Message State & Token Metadata (`4-messages.ipynb`)
+## 1.6 Canonical Message State & Token Tracking (`4-messages.ipynb`) <a id="canonical-messages" name="canonical-messages"></a>
 
-**Canonical Message State** is a unified, standardized format ensuring all parts of the system communicate using the same structure. Benefits:
-- Reduces complexity
-- Looser coupling between components
-- Easier maintenance and debugging
-
-**Messages** are the fundamental unit of context. They carry content, roles, and provider metadata across multi-turn conversations and agent loops.
-
-| | Text Prompts | Message Prompts |
-| :--- | :--- | :--- |
-| **Format** | Plain string | Structured list of `BaseMessage` objects |
-| **Use case** | Simple single-turn tasks | Multi-turn chat, agent tool-calling loops |
+**Canonical Message State** is a unified format ensuring all components communicate using identical schema structures.
 
 ### The 4 Canonical Message Types
 
 | Class | Role | Purpose |
 | :--- | :--- | :--- |
-| `SystemMessage` | `system` | Sets persona, tone, rules, and guardrails |
+| `SystemMessage` | `system` | Sets persona, tone, rules, and security guardrails |
 | `HumanMessage` | `user` | User inputs — supports multimodal content (text, images, audio, files) |
 | `AIMessage` | `assistant` | Model output — includes text, reasoning tokens, and `tool_calls` payload |
 | `ToolMessage` | `tool` | Output from a tool execution, matched to the call via `tool_call_id` |
@@ -269,84 +509,220 @@ messages = [
 ]
 
 response = model.invoke(messages)
-print(response.usage_metadata)  # Contains token usage details
+print("Token Usage Metadata:", response.usage_metadata)
+# {'input_tokens': 45, 'output_tokens': 18, 'total_tokens': 63}
 ```
 
 ---
 
-## 5. Enforced Schema Parsing & Structured Output (`5-structuredoutput.ipynb`)
+## 1.7 Output Parsers & Enforced Schema Structured Outputs (`5-structuredoutput.ipynb`) <a id="output-parsers-and-structured-output" name="output-parsers-and-structured-output"></a>
 
-<details>
-<summary>Version Note — LangChain v0.3: Pydantic v1 is no longer supported</summary>
-<ul>
-<li><strong>Deprecated:</strong> Pydantic v1 (<code>BaseModel</code> from pydantic &lt;2.0). LangChain v0.3 requires Pydantic v2.</li>
-<li><strong>Current standard:</strong> <code>model.with_structured_output()</code> using Pydantic v2 <code>BaseModel</code> or <code>TypedDict</code>. This is now the definitive approach for reliable data extraction, replacing older brittle output parsers.</li>
-</ul>
-</details>
+### Classic Output Parsers vs. Modern Structured Output
 
-**Structured Output** guarantees the LLM responds with data that matches a strict schema (JSON/Pydantic), eliminating downstream parsing failures.
+| Category | Component | Mechanism | Validation |
+| :--- | :--- | :--- | :--- |
+| **String Parser** | `StrOutputParser()` | Extracts `.content` string from `AIMessage` | ❌ None |
+| **JSON Parser** | `JsonOutputParser()` | Regex/prompt-based JSON extraction | ❌ Basic JSON parsing |
+| **Pydantic Parser** | `PydanticOutputParser()` | Injects formatting instructions into prompt; parses with Pydantic | ⚠️ Prompt-dependent |
+| **Modern Structured Output** | `model.with_structured_output()` | Constrained decoding / Function calling API | ✅ Strict Schema Enforcement |
 
-### Supported Schema Types
+---
 
-1. **Pydantic (`BaseModel`)** — Full runtime field validation, defaults, and rich `Field(description=...)` docs.
-2. **TypedDict** — Lightweight, built-in Python typing using `Annotated[T, Field(description=...)]`.
-3. **Dataclass (`@dataclass`)** — Standard Python data container.
+### Classic Output Parsers Walkthrough
+
+```python
+from langchain_core.output_parsers import StrOutputParser, JsonOutputParser, CommaSeparatedListOutputParser
+from langchain_core.prompts import PromptTemplate
+
+# 1. String Output Parser (Pulls clean text from AIMessage)
+chain = prompt | model | StrOutputParser()
+
+# 2. Comma Separated List Output Parser
+list_parser = CommaSeparatedListOutputParser()
+format_instructions = list_parser.get_format_instructions()
+prompt = PromptTemplate(
+    template="List 5 popular programming languages.\n{format_instructions}",
+    input_variables=[],
+    partial_variables={"format_instructions": format_instructions}
+)
+list_chain = prompt | model | list_parser
+# Returns: ['Python', 'JavaScript', 'TypeScript', 'Java', 'Rust']
+```
+
+---
+
+### Modern Schema Enforcement (`model.with_structured_output`)
 
 ```python
 from pydantic import BaseModel, Field
 from typing_extensions import TypedDict, Annotated
+from typing import List, Optional
 
-# Option A: Pydantic Schema (recommended — full validation)
+# Option A: Pydantic Schema (Recommended for Strict Runtime Validation)
 class Movie(BaseModel):
     title: str = Field(description="Title of the movie")
-    year: int = Field(description="Release year")
+    year: int = Field(description="Year the movie was released")
+    director: Optional[str] = Field(default=None, description="Director's full name")
+    genres: List[str] = Field(default_factory=list, description="List of genres")
 
-structured_model = model.with_structured_output(Movie)
-movie_obj = structured_model.invoke("Provide details about Inception")
-# Returns: Movie(title='Inception', year=2010)
+structured_model = model.with_structured_output(Movie, include_raw=True)
+result = structured_model.invoke("Provide details about Inception released in 2010 directed by Christopher Nolan")
 
-# Option B: TypedDict Schema (lightweight)
-class MovieDict(TypedDict):
-    title: Annotated[str, Field(description="Title of the movie")]
-    year: Annotated[int, Field(description="Release year")]
-
-structured_dict_model = model.with_structured_output(MovieDict)
+if result["parsing_error"] is None:
+    movie: Movie = result["parsed"]
+    print(movie.title, movie.year, movie.genres)
+    print("Tokens Used:", result["raw"].usage_metadata)
+else:
+    print("Parsing Error:", result["parsing_error"])
 ```
-
-**`include_raw=True`** — Returns `{"raw": AIMessage, "parsed": SchemaObject, "parsing_error": None}` for debugging raw model tokens.
 
 ---
 
-## 6. Stateful Middleware, Memory & Human-in-the-Loop (`6-middleware.ipynb`)
+## 1.8 Chains, LCEL & The Runnable Protocol <a id="lcel-and-runnables" name="lcel-and-runnables"></a>
 
-**Middleware** intercepts and modifies internal agent execution steps. Think of it as a security guard, accountant, and editor standing beside the agent — the agent does the thinking, but middleware intercepts everything before it happens.
+**LCEL (LangChain Expression Language)** is a declarative pipe-based composition syntax using the pipe operator (`|`). It turns arbitrary components into an executable Directed Acyclic Graph (DAG).
 
-**Three roles of middleware:**
+### Core Runnables Reference
 
-**Role 1 — The Accountant (Logging & Cost Control)**
-- Tracks what the agent did and how long it took.
-- Counts tokens. If the agent spends too much or gets stuck in a loop, middleware cuts it off.
+| Runnable | Purpose | Example |
+| :--- | :--- | :--- |
+| `RunnablePassthrough` | Passes input through unchanged | `{"question": RunnablePassthrough()}` |
+| `RunnablePassthrough.assign()` | Computes and adds new keys to a dictionary without dropping existing keys | `chain.assign(context=retriever)` |
+| `RunnableParallel` (dict) | Executes multiple branches in parallel threads | `RunnableParallel(context=retriever, query=RunnablePassthrough())` |
+| `RunnableLambda` | Wraps any arbitrary Python function into a Runnable | `RunnableLambda(lambda x: x.upper())` |
+| `RunnableBranch` | Conditional routing (if-else logic) based on input | `RunnableBranch((condition, chain_a), default_chain)` |
+| `RunnableConfig` | Passes runtime metadata, tags, callbacks, and concurrency | `chain.invoke(..., config={"max_concurrency": 5})` |
 
-**Role 2 — The Filter (Guardrails & Security)**
-- Hides private data: if the agent tries to send a phone number or credit card to the cloud, middleware replaces it with `[HIDDEN]` first.
-- Blocks bad replies: if the agent says something unsafe or broken, middleware prevents it from reaching the user.
+```python
+from langchain_core.runnables import RunnablePassthrough, RunnableParallel, RunnableLambda
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
 
-> **Guardrails** = safety boundaries that prevent AI systems from going into dangerous or unintended territory.
+# 1. Pipeline Definition with Branching and Dict Composition
+prompt = ChatPromptTemplate.from_template("Summarize the following topic in 2 bullet points: {topic}")
 
-**Role 3 — The Assistant (Memory & Approvals)**
-- Shrinks long chats: if a conversation gets too long, middleware summarizes old parts so the agent stays fast.
-- Asks for permission: before the agent does something serious (send an email, charge money), middleware pauses and asks a human to Approve or Deny.
+# Dict syntax automatically wraps into RunnableParallel
+parallel_prep = {
+    "topic": RunnablePassthrough(),
+    "extra_notes": RunnableLambda(lambda x: f"User requested topic: {x}")
+}
 
-What middleware can do:
-- Logging, analytics, and token cost control
-- Guardrails, PII masking, and output safety filtering
-- Automated memory compression and human approval checkpoints
+chain = parallel_prep | prompt | model | StrOutputParser()
+print(chain.invoke("Retrieval-Augmented Generation"))
+```
+
+---
+
+## 1.9 Memory, Chat History, Conversation & Session Handling <a id="memory-and-sessions" name="memory-and-sessions"></a>
+
+### The Evolution of Memory in LangChain
+
+- **Legacy Deprecation:** `ConversationBufferMemory`, `ConversationSummaryMemory`, and `ConversationBufferWindowMemory` are deprecated because they tightly coupled state inside monolithic chains, breaking horizontal scaling and multi-tenant statelessness.
+- **Modern Standards:**
+  1. **Stateless Chains + External Session History (`RunnableWithMessageHistory`)**
+  2. **Compiled Stateful Graph Checkpointing (`LangGraph`)**
+
+---
+
+### Standard 1: `RunnableWithMessageHistory` & Session Handling
+
+Keeps LCEL chains completely stateless while dynamically injecting and saving message history based on a `session_id`:
+
+```python
+from langchain_community.chat_message_histories import ChatMessageHistory
+from langchain_core.chat_history import BaseChatMessageHistory
+from langchain_core.runnables.history import RunnableWithMessageHistory
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+
+# In-memory session store (In production: use RedisChatMessageHistory or MongoDBChatMessageHistory)
+session_store = {}
+
+def get_session_history(session_id: str) -> BaseChatMessageHistory:
+    if session_id not in session_store:
+        session_store[session_id] = ChatMessageHistory()
+    return session_store[session_id]
+
+prompt = ChatPromptTemplate.from_messages([
+    ("system", "You are a helpful customer support agent."),
+    MessagesPlaceholder(variable_name="history"),
+    ("human", "{question}")
+])
+
+chain = prompt | model | StrOutputParser()
+
+# Wrap chain with session history manager
+conversational_chain = RunnableWithMessageHistory(
+    chain,
+    get_session_history,
+    input_messages_key="question",
+    history_messages_key="history"
+)
+
+# User Session 1
+config_user1 = {"configurable": {"session_id": "user_session_001"}}
+res1 = conversational_chain.invoke({"question": "Hi, my name is Alice."}, config=config_user1)
+res2 = conversational_chain.invoke({"question": "What is my name?"}, config=config_user1)
+# Returns: "Your name is Alice."
+
+# User Session 2 (Completely isolated session state)
+config_user2 = {"configurable": {"session_id": "user_session_002"}}
+res3 = conversational_chain.invoke({"question": "What is my name?"}, config=config_user2)
+# Returns: "I do not know your name yet."
+```
+
+---
+
+### Conversation Management: Message Trimming (`trim_messages`)
+
+Prevents context window overflows by trimming history to a target token limit while guaranteeing structural validity (preserving system messages and message pairs):
+
+```python
+from langchain_core.messages import trim_messages
+
+trimmed_history = trim_messages(
+    messages=session_store["user_session_001"].messages,
+    max_tokens=500,
+    strategy="last",          # Keep the most recent messages
+    token_counter=model,      # Use the LLM's tokenizer
+    include_system=True,      # Always retain SystemMessage
+    allow_partial=False,
+    start_on="human"          # Ensure first conversation message is a HumanMessage
+)
+```
+
+---
+
+### Standard 2: LangGraph Stateful Checkpointing (`thread_id`)
+
+For autonomous agents, LangGraph checkpointers persist entire state snapshots at every node:
+
+```python
+from langgraph.checkpoint.memory import InMemorySaver
+from langchain.agents import create_agent
+
+checkpointer = InMemorySaver()
+
+agent = create_agent(
+    model="gpt-4o-mini",
+    tools=[get_weather],
+    checkpointer=checkpointer
+)
+
+# Execution scoped by thread_id
+thread_config = {"configurable": {"thread_id": "ticket_8823"}}
+response = agent.invoke(
+    {"messages": [{"role": "user", "content": "Book a flight to Boston"}]},
+    config=thread_config
+)
+```
+
+---
+
+## 1.10 Stateful Middleware & Human-in-the-Loop (`6-middleware.ipynb`) <a id="middleware-and-hitl" name="middleware-and-hitl"></a>
+
+Middleware intercepts agent execution cycles to enforce guardrails, compress memory, and require human confirmation.
 
 ### Middleware Type 1 — Summarization (`SummarizationMiddleware`)
-
-**Problem:** Long multi-turn conversations exceed context window limits and waste tokens.
-
-**Solution:** Automatically compresses older turns into a summary once a message count/token limit is hit, keeping the most recent messages intact.
 
 ```python
 from langchain.agents import create_agent
@@ -368,10 +744,6 @@ agent = create_agent(
 
 ### Middleware Type 2 — Human-In-The-Loop (`HumanInTheLoopMiddleware`)
 
-**Problem:** High-stakes tool executions (DB deletes, financial transactions, email sends) need human oversight before execution.
-
-**Solution:** Pauses agent execution before specified tools run. State is persisted via `InMemorySaver` while waiting for a human approval/rejection/edit signal.
-
 ```python
 from langchain.agents import create_agent
 from langchain.agents.middleware import HumanInTheLoopMiddleware
@@ -379,7 +751,7 @@ from langgraph.checkpoint.memory import InMemorySaver
 
 agent = create_agent(
     model="gpt-4o-mini",
-    tools=[send_email_tool, read_email_tool],
+    tools=[send_email_tool],
     checkpointer=InMemorySaver(),
     middleware=[
         HumanInTheLoopMiddleware(
@@ -388,24 +760,6 @@ agent = create_agent(
     ]
 )
 ```
-
----
-
-## 7. LangChain Expression Language (LCEL) & The Runnable Protocol
-
-**LCEL** is a declarative way to compose AI building blocks — prompts, models, parsers — using the pipe operator (`|`). [[LangChain Blog](https://www.langchain.com/blog/langchain-expression-language)]
-
-**Key concepts:**
-- **Declarative Composition:** Define what to connect; data flows left to right automatically.
-- **Runnable Protocol:** Every LCEL component implements a standard interface with `invoke()`, `ainvoke()`, `batch()`, `stream()`.
-- **Basic syntax:** `chain = prompt | llm | output_parser`
-
-**Key benefits:**
-- **Multiple execution modes** out of the box — sync, async, batch, streaming — without changing code. [[k21academy](https://k21academy.com/ai-ml/langchain-expression-language/)]
-- **Automatic parallelism** — steps that can run concurrently do so automatically.
-- **Production ready** — built-in logging and tracing via LangSmith. [[artefact.com](https://www.artefact.com/blog/unleashing-the-power-of-langchain-expression-language-lcel-from-proof-of-concept-to-production/)]
-
-> **LCEL vs. Pre-built Chains:** When building custom LCEL RAG pipelines (`retriever | format_docs | prompt`), converting `List[Document]` to a string via `format_docs` is **mandatory**. Pre-built helpers (`create_stuff_documents_chain`) handle document formatting internally. See the full [format_docs Decision Guide](#format-docs-deep-dive).
 
 </details>
 
@@ -3100,6 +3454,202 @@ $$	ext{MMR}(d) = \lambda \cdot 	ext{sim}(d, q) - (1 - \lambda) \cdot \max_{s \in
 1. LangChain agents use chat models to decide which tool to execute based on prompts.
 2. LangGraph orchestrates multi-agent systems with cyclical graph architectures.
 ```
+
+</details>
+
+---
+
+<details><summary><a id="topic-parent-retrieval" name="topic-parent-retrieval"></a>Phase 6.4 — Parent Document Retrieval (Small-to-Big Hierarchical Search)</summary>
+
+# Phase 6.4: Parent Document Retrieval (`ParentDocumentRetriever`)
+
+## 🎯 The Core Trade-off in Standard Chunking: Precision vs. Context
+
+In production RAG systems, standard chunking forces an unavoidable compromise:
+- **Small Chunks ($\sim 100-300$ tokens):**
+  - *Embedding Advantage:* Sharp, specific vectors that closely match user query nuances.
+  - *LLM Context Disadvantage:* Starved of surrounding context, leading to broken reasoning, unresolved pronouns ("it", "they"), and fragmented answers.
+- **Large Chunks ($\sim 1000-2000$ tokens):**
+  - *LLM Context Advantage:* Comprehensive narrative containing background, qualifiers, and full logic.
+  - *Embedding Disadvantage:* Diluted, blurry vectors where specific facts are averaged out across thousands of unrelated words ("lost in the middle").
+
+> [!IMPORTANT]
+> **The Parent Document Retrieval Solution:**
+> **Decouple the representation used for retrieval from the representation used for generation.**
+> Index small, highly focused **child chunks** in the vector database for high-precision search, but fetch and pass the wider enclosing **parent document or chunk** to the LLM for high-fidelity generation.
+
+---
+
+## 🏗️ Dual-Storage Architecture
+
+Parent Document Retrieval uses a two-tier storage system:
+1. **Vector Store (Chroma / FAISS):** Stores embeddings of the **child chunks** along with metadata pointing to the parent ID (`{"doc_id": "parent_uuid"}`).
+2. **Document Store (Docstore / Key-Value):** Stores the full **parent documents** or large parent chunks indexed by `doc_id` (`InMemoryStore`, `LocalFileStore`, Redis, or MongoDB).
+
+```
+                                ┌───────────────────────────────────────────────┐
+                                │             Raw Source Documents              │
+                                └───────────────────────┬───────────────────────┘
+                                                        │
+                                   ┌────────────────────┴────────────────────┐
+                                   │ (Optional) Parent Splitter              │
+                                   ▼                                         ▼
+                      ┌────────────────────────┐                ┌────────────────────────┐
+                      │ Parent Chunk 1 (2000t) │                │ Parent Chunk 2 (2000t) │
+                      └──────────┬─────────────┘                └──────────┬─────────────┘
+                                 │                                         │
+                  Stored in:     │                                         │
+                  Document Store ┼─────────────────────────────────────────┤ (Key-Value: InMemory / Redis / SQL)
+                                 │                                         │
+                                 ▼ Child Splitter                          ▼ Child Splitter
+                      ┌──────────┬──────────┐                   ┌──────────┬──────────┐
+                      │ Child 1a │ Child 1b │                   │ Child 2a │ Child 2b │
+                      │  (400t)  │  (400t)  │                   │  (400t)  │  (400t)  │
+                      └────┬─────┴────┬─────┘                   └────┬─────┴────┬─────┘
+                           │          │                              │          │
+                           ▼          ▼                              ▼          ▼
+                     [Embeddings & Vector Index]              [Embeddings & Vector Index]
+                                   └────────────────────┬────────────────────┘
+                                                        │ Stored in: Vector Store (Chroma / FAISS)
+                                                        │ Metadata: {"doc_id": "parent_1"}
+ ───────────────────────────────────────────────────────┼────────────────────────────────────────────────────────
+                                  RETRIEVAL WORKFLOW    │
+ ───────────────────────────────────────────────────────┼────────────────────────────────────────────────────────
+                                                        ▼
+ [User Query] ──▶ Vector Search on Child Chunks ──▶ Matches Child 1b (doc_id="parent_1")
+                                                            │
+                                                            ▼ Lookup & Deduplicate
+                                                  Fetch from Document Store
+                                                            │
+                                                            ▼
+                                            Pass Parent Chunk 1 (2000t) to LLM
+```
+
+---
+
+## ⚙️ The Two Operational Modes
+
+| Mode | Parent Splitter | Child Splitter | How It Works | Best For |
+| :--- | :--- | :--- | :--- | :--- |
+| **Mode 1: Full Document as Parent** | `parent_splitter=None` | Configured (e.g. 400 chars) | Child chunks are indexed; matching any child returns the **entire raw document**. | Short-to-medium docs (1-5 pages), blog posts, contracts, customer tickets. |
+| **Mode 2: Split Parent Chunks (Hierarchical)** | Configured (e.g. 2000 chars) | Configured (e.g. 400 chars) | Divides docs into large parent chunks, then sub-splits into child chunks. Returns the **enclosing parent chunk**. | Long books, large technical manuals, API references, extensive legal codes. |
+
+---
+
+## 💻 Complete Implementation Guide
+
+#### Imports
+```python
+from langchain.retrievers import ParentDocumentRetriever
+from langchain.storage import InMemoryStore, LocalFileStore
+from langchain_chroma import Chroma
+from langchain_openai import OpenAIEmbeddings
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_core.documents import Document
+from langchain.chat_models import init_chat_model
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import RunnablePassthrough
+```
+
+#### Code Walkthrough: Hierarchical Small-to-Big Retrieval
+```python
+# 1. Sample Corpus with Long Technical Context
+raw_docs = [
+    Document(
+        page_content=(
+            "Quantum error correction (QEC) protects quantum information from decoherence. "
+            "Surface codes are the leading 2D topological quantum error-correcting codes. "
+            "They arrange physical data qubits and syndrome measurement ancilla qubits in a 2D checkerboard lattice. "
+            "The distance d of a surface code determines its fault tolerance, requiring d^2 data qubits and d^2 - 1 ancilla qubits. "
+            "Threshold theorems demonstrate that if physical gate error rates fall below ~1%, logical error rates decay exponentially with distance d. "
+            "Current physical implementations utilize superconducting transmon circuits operating inside dilution refrigerators at 15 millikelvin."
+        ),
+        metadata={"source": "quantum_computing_handbook.pdf", "chapter": 4}
+    )
+]
+
+# 2. Configure Splitters: Parent (Context) and Child (Search Precision)
+# Rule of thumb: Parent-to-Child ratio between 4:1 and 6:1
+parent_splitter = RecursiveCharacterTextSplitter(chunk_size=1200, chunk_overlap=100)
+child_splitter = RecursiveCharacterTextSplitter(chunk_size=250, chunk_overlap=30)
+
+# 3. Initialize Vector Store (for small child chunk embeddings)
+vectorstore = Chroma(
+    collection_name="quantum_child_vectors",
+    embedding_function=OpenAIEmbeddings(model="text-embedding-3-small")
+)
+
+# 4. Initialize Document Store (for full parent chunks)
+# Production: Use persistent LocalFileStore("./parent_cache") or RedisStore
+docstore = InMemoryStore()
+
+# 5. Build ParentDocumentRetriever
+retriever = ParentDocumentRetriever(
+    vectorstore=vectorstore,
+    docstore=docstore,
+    child_splitter=child_splitter,
+    parent_splitter=parent_splitter, # Set to None if full documents are parents
+)
+
+# 6. Ingest Documents
+# Automatically splits into parents, then children, indexes children into Chroma, and maps them via doc_id
+retriever.add_documents(raw_docs)
+
+# 7. Query Execution
+query = "How many ancilla qubits does a surface code need?"
+retrieved_parents = retriever.invoke(query)
+
+print(f"Retrieved {len(retrieved_parents)} parent document(s):")
+for i, doc in enumerate(retrieved_parents, 1):
+    print(f"\n--- Parent Document {i} (Length: {len(doc.page_content)} chars) ---")
+    print(doc.page_content)
+    print("Metadata:", doc.metadata)
+```
+
+---
+
+## 🚀 Connecting ParentDocumentRetriever to an LCEL RAG Chain
+
+```python
+# Initialize factual LLM (low temperature for RAG fidelity)
+llm = init_chat_model("gpt-4o-mini", temperature=0.0)
+
+prompt = ChatPromptTemplate.from_template("""Answer the question based ONLY on the following context.
+If you cannot answer using the context, state that you do not know.
+
+Context:
+{context}
+
+Question: {question}
+Answer:""")
+
+def format_docs(docs):
+    return "\n\n".join(doc.page_content for doc in docs)
+
+# Construct LCEL RAG Pipeline
+parent_rag_chain = (
+    {"context": retriever | format_docs, "question": RunnablePassthrough()}
+    | prompt
+    | llm
+    | StrOutputParser()
+)
+
+response = parent_rag_chain.invoke("What operating temperature do transmon circuits require?")
+print("\nSynthesized Answer:", response)
+```
+
+---
+
+## 📊 Retrieval Strategy Comparison Matrix
+
+| Strategy | Search Representation | Context Fed to LLM | Main Advantage | Main Trade-off |
+| :--- | :--- | :--- | :--- | :--- |
+| **Standard Recursive** | Single chunk ($\sim 500$t) | Same chunk ($\sim 500$t) | Simplest architecture | Precision vs context compromise |
+| **Parent Document (Small-to-Big)** | Small child chunk ($\sim 200$t) | Enclosing parent chunk/doc ($\sim 1500$t) | High retrieval accuracy + full context | Dual storage overhead (Vector DB + Docstore) |
+| **Sentence Window** | Single sentence | Sentence + $k$ surrounding sentences | Fine-grained sentence matching | Rigid window size; misses wide section context |
+| **Multi-Vector (Summary)** | Document summary | Full original document | Excellent for heterogeneous/dense documents | High offline preprocessing cost (generating summaries) |
+| **HyDE** | Hypothetical LLM answer | Vector-matched chunks | Bridges query-document lexical gaps | Adds LLM latency prior to retrieval |
 
 </details>
 

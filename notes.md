@@ -14,8 +14,8 @@
 | **Stage 3** | **Vector Embeddings & Representation** | High-dimensional semantic vectors and dense embeddings | [Embedding Models (OpenAI & HF)](#embedding-models) |
 | **Stage 4** | **Vector Storage & Database Indexing** | Local vector stores vs cloud databases, CRUD, and distance metrics | [Vector Stores vs Vector Databases](#vector-store-vs-db) • [ChromaDB](#chroma-db) • [FAISS](#faiss) • [Pinecone](#pinecone) • [InMemory](#inmemory-store) • [Qdrant](#qdrant) • [Distance Metrics](#distance-metrics) |
 | **Stage 5** | **Pre-Retrieval Query Enhancement** | Bridging semantic gaps, multi-hop sub-queries, and hypothetical answers | [12.1 Query Expansion](#query-expansion) • [12.2 Query Decomposition](#query-decomposition) • [12.3 HyDE (Hypothetical Doc Embeddings)](#hyde) |
-| **Stage 6** | **Advanced Retrieval & Precision Ranking** | Dense + Sparse hybrid fusion, cross-encoder re-ranking, and diversity | [11.1 Dense + Sparse Hybrid Search](#dense-sparse-retriever) • [11.2 Re-ranking](#reranking) • [11.3 MMR (Maximal Marginal Relevance)](#mmr) • [11.4 Production Search Strategies](#production-search) |
-| **Stage 7** | **RAG Chain Construction & Memory** | LCEL composition, conversational memory, and built-in retrieval helpers | [Custom LCEL RAG Chain](#lcel-rag-chain) • [Conversational RAG (History)](#conversational-rag) • [Modern Classic Retrieval Chain](#classic-rag-chain) • [RAG Chain Types Comparison](#chain-types-comparison) |
+| **Stage 6** | **Advanced Retrieval & Precision Ranking** | Dense + Sparse hybrid fusion, cross-encoder re-ranking, MMR, and Parent Document Retrieval | [11.1 Dense + Sparse Hybrid Search](#dense-sparse-retriever) • [11.2 Re-ranking](#reranking) • [11.3 MMR (Maximal Marginal Relevance)](#mmr) • [11.4 Production Search Strategies](#production-search) • [11.5 Parent Document Retrieval](#parent-document-retriever) |
+| **Stage 7** | **LangChain Architecture, Models, LCEL, Parsers & Memory** | Architecture stack, Chat Models vs LLMs, Universal SDKs (`init_chat_model`), Prompt Engineering, Output Parsers, Structured Output, LCEL & Runnables, Memory & Session Handling | [9.0 Architecture](#langchain-architecture) • [9.1 Models & SDKs](#models-and-chat-models) • [9.2 Prompts](#prompts-and-engineering) • [9.3 Parsers](#output-parsers-and-structured-output) • [9.4 LCEL & Runnables](#lcel-and-runnables) • [9.5 Memory & Sessions](#memory-and-sessions) • [9.6 Retrieval Chains](#classic-rag-chain) |
 | **Stage 7.1** | **Chain Architecture Decision Framework** | 🎯 **Deep Dive: When to Use vs. When NOT to Use `format_docs`** (LCEL vs. Pre-built Helpers Comparison Matrix) | [format_docs Decision Guide](#format-docs-guide) |
 | **Stage 8** | **Multimodal RAG & Visual Intelligence** | Cross-modal text-to-image retrieval, CLIP joint space, and Vision LLMs | [13. Multimodal RAG (notes2.md)](file:///c:/Users/DELL/Desktop/rag_praacties/notes2.md#13-multimodal-rag-07_multimodle-rag) |
 
@@ -46,12 +46,43 @@
    * [Qdrant (`langchain_qdrant.QdrantVectorStore`)](#qdrant)
    * [Vector Distance Metrics & Similarity Scores](#distance-metrics)
 
-9. [Stage 7: RAG Chains & Conversational Memory](#rag-chains)
-   * [1. LLM / Model Initialization Methods](#llm-init-methods)
-   * [2. Custom RAG Chain using LCEL (LangChain Expression Language)](#lcel-rag-chain)
-   * [3. Conversational RAG Chain (With History/Memory)](#conversational-rag)
-   * [4. Modern RAG Chain (Using LangChain Classic Retrieval Chain)](#classic-rag-chain)
-   * [Stage 7.1: 5. When to Use vs. When NOT to Use `format_docs` in LangChain](#format-docs-guide)
+9. [Stage 7: LangChain Architecture, Models, Prompts, LCEL, Parsers & Memory](#rag-chains)
+   * [9.0 LangChain Architecture & Ecosystem Stack](#langchain-architecture)
+   * [9.1 Models, Chat Models & Universal SDK Initializers](#models-and-chat-models)
+     - [9.1.1 Models (LLMs) vs Chat Models](#models-vs-chat-models)
+     - [9.1.2 Universal Factory: `init_chat_model()`](#universal-factory-init-chat-model)
+     - [9.1.3 Dedicated Partner SDKs (OpenAI, Groq, Gemini, Anthropic)](#partner-sdks)
+     - [9.1.4 Native Direct Provider SDKs vs LangChain Wrappers](#native-sdks-vs-langchain)
+     - [9.1.5 The 6 Universal Execution Methods (Runnable Protocol)](#six-execution-methods)
+     - [9.1.6 Autoregressive Generation & Decoding Parameters](#model-parameters-overview)
+     - [9.1.7 Real-Time Streaming Architecture (`stream` & `astream`)](#streaming-deepdive)
+     - [9.1.8 Canonical Message State & Token Tracking](#canonical-messages)
+     - [9.1.9 Tool Anatomy & Function Calling Lifecycle](#function-calling-deepdive)
+   * [9.2 Prompt Templates & Prompt Engineering within LangChain](#prompts-and-engineering)
+     - [9.2.1 String PromptTemplate vs ChatPromptTemplate](#prompt-templates)
+     - [9.2.2 Dynamic Conversations with MessagesPlaceholder](#messages-placeholder)
+     - [9.2.3 Partial Formatting (`.partial()`)](#partial-prompts)
+     - [9.2.4 Few-Shot Prompting (`FewShotChatMessagePromptTemplate`)](#few-shot-prompts)
+     - [9.2.5 Prompt Engineering Strategies (System Guardrails & CoT)](#prompt-engineering-strategies)
+   * [9.3 Output Parsers & Enforced Schema Structured Outputs](#output-parsers-and-structured-output)
+     - [9.3.1 Classic Output Parsers (`StrOutputParser`, `JsonOutputParser`, `PydanticOutputParser`)](#classic-output-parsers)
+     - [9.3.2 Modern Enforced Schema: `model.with_structured_output()`](#structured-output-deepdive)
+     - [9.3.3 Parsing Comparison Matrix (Classic Parsers vs Structured Output)](#parsers-comparison-matrix)
+   * [9.4 Chains, LCEL & The Runnable Protocol](#lcel-and-runnables)
+     - [9.4.1 Declarative LCEL Pipe Operator (`|`)](#lcel-pipe)
+     - [9.4.2 Core Runnable Primitives (`Passthrough`, `.assign()`, `Parallel`, `Lambda`, `Branch`)](#runnable-primitives)
+     - [9.4.3 Runtime Configuration with `RunnableConfig`](#runnable-config)
+     - [9.4.4 Complete Custom LCEL RAG Pipeline](#lcel-rag-chain)
+   * [9.5 Memory, Chat History, Conversation Management & Session Handling](#memory-and-sessions)
+     - [9.5.1 Deprecation of Legacy Memory (Why BufferMemory is Obsolete)](#legacy-memory-deprecation)
+     - [9.5.2 In-Memory Chat History (`ChatMessageHistory`)](#chat-message-history)
+     - [9.5.3 Session Management with `RunnableWithMessageHistory`](#session-management)
+     - [9.5.4 Context Window Token Trimming (`trim_messages()`)](#trim-messages)
+     - [9.5.5 Modern State Checkpointing with LangGraph (`thread_id`)](#langgraph-checkpointing)
+     - [9.5.6 Conversational RAG with Contextualized Query Reformulation](#conversational-rag)
+   * [9.6 Pre-Built Retrieval Chains & Architecture Decision Guide](#classic-rag-chain)
+     - [9.6.1 Modern Classic Retrieval Chain (`create_retrieval_chain`)](#classic-retrieval-chain)
+     - [9.6.2 When to Use vs When NOT to Use `format_docs`](#format-docs-guide)
 
 10. [Stage 2: Semantic Chunking](#semantic-chunking)
     * [RAG Chain Types Comparison](#chain-types-comparison)
@@ -62,6 +93,7 @@
     * [11.2 Re-ranking Hybrid Search Strategies](#reranking)
     * [11.3 Maximal Marginal Relevance - MMR](#mmr)
     * [11.4 RAG Search Strategies & Production Search Pipelines](#production-search)
+    * [11.5 Parent Document Retrieval (Small-to-Big Hierarchical Search)](#parent-document-retriever)
 
 12. [Stage 5: Query Enhancement & Advanced RAG](#query-enhancement)
     * [12.1 Query Expansion](#query-expansion)
@@ -1374,295 +1406,876 @@ Similarity search relies on mathematical distance metrics between high-dimension
 
 ---
 
-## 9. RAG Chains & Conversational Memory (`8.1-chromadb.ipynb`) <a id="rag-chains" name="rag-chains"></a>
+## 9. LangChain Architecture, Models, Prompts, LCEL, Parsers & Memory (`8.1-chromadb.ipynb`) <a id="rag-chains" name="rag-chains"></a>
 
 ![RAG Architecture](assets/image-2.png)
 
-### Imports
-```python
-# LLM Initialization
-from langchain_openai import ChatOpenAI
-from langchain.chat_models.base import init_chat_model
+This section serves as the **definitive production engineering reference** for modern **LangChain v1.1/1.x** and **LangGraph**. It brings together architectural foundations, universal SDK initializers, prompt engineering patterns, schema enforcement, declarative LCEL pipelines, and multi-tenant conversational session memory into a unified, modular curriculum.
 
-# Prompts & Message Structure
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.messages import HumanMessage, AIMessage
+---
 
-# Output Parsers & Runnables (LCEL)
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.runnables import RunnablePassthrough, RunnableParallel
+### 9.0 LangChain Architecture & Ecosystem Stack <a id="langchain-architecture" name="langchain-architecture"></a>
 
-# Chains & Retrievers (Built-in - langchain_classic for LangChain 1.x compatibility)
-from langchain_classic.chains import create_retrieval_chain, create_history_aware_retriever
-from langchain_classic.chains.combine_documents import create_stuff_documents_chain
+Modern LangChain is decoupled into a modular, multi-tier architectural stack to eliminate dependency bloat, ensure clear abstraction boundaries, and guarantee enterprise production stability.
+
+```
+┌────────────────────────────────────────────────────────┐
+│                      LangSmith                         │  (Observability, Tracing, Eval, Telemetry)
+└──────────────────────────┬─────────────────────────────┘
+                           │
+┌──────────────────────────▼─────────────────────────────┐
+│                      LangGraph                         │  (Stateful Cyclical Graphs, Checkpointing, Multi-Agent)
+└──────────────────────────┬─────────────────────────────┘
+                           │
+┌──────────────────────────▼─────────────────────────────┐
+│                      LangChain                         │  (High-Level Chains, Retrieval Algorithms, Pre-built Agents)
+└──────────┬───────────────────────────────┬─────────────┘
+           │                               │
+┌──────────▼──────────────┐   ┌────────────▼─────────────┐
+│   langchain-community   │   │     Partner Packages     │  (langchain-openai, langchain-groq, langchain-chroma, etc.)
+└──────────┬──────────────┘   └────────────┬─────────────┘
+           │                               │
+┌──────────▼───────────────────────────────▼─────────────┐
+│                    langchain-core                      │  (Runnables, LCEL, Messages, Base Types, Document)
+└────────────────────────────────────────────────────────┘
 ```
 
-### How to Use
+#### The 5 Architectural Layers
 
-#### 1. LLM / Model Initialization Methods <a id="llm-init-methods" name="llm-init-methods"></a>
+1. **`langchain-core`**: The foundational bedrock. Contains base interfaces (`BaseChatModel`, `PromptTemplate`, `BaseMessage`, `Document`, `BaseRetriever`), the Runnable protocol, and the LCEL pipe compiler. Has zero bloated dependencies.
+2. **`langchain`**: The main orchestration library. Houses general cognitive architecture patterns, pre-built RAG chains (`create_retrieval_chain`, `create_history_aware_retriever`, `ParentDocumentRetriever`), and agent factories (`create_agent`).
+3. **`langchain-community` & Dedicated Partner Packages**:
+   - `langchain-community`: Community-contributed third-party integrations.
+   - Dedicated Partner Packages (`langchain-openai`, `langchain-groq`, `langchain-anthropic`, `langchain-google-genai`, `langchain-chroma`, `langchain-pinecone`): Lightweight, first-party maintained wrappers optimized for specific model providers and vector databases.
+4. **`langgraph`**: The stateful execution engine. Replaces legacy execution loops with cyclical graphs, persistent checkpointers, and multi-agent coordination.
+5. **`langsmith`**: Production observability platform for distributed tracing, token accounting, latency analysis, and LLM evaluation.
 
-<details>
-<summary>⚠️ LangChain v0.3 Chat Models, Agents, & Chains Updates</summary>
-<ul>
-<li><strong>Legacy Chat Models & Legacy Chains</strong>: Importing models like <code>ChatOpenAI</code> directly from <code>langchain.chat_models</code>, and old chains like <code>ConversationalRetrievalChain</code> are deprecated. <strong>This document is correctly updated</strong> by using the new <code>init_chat_model</code> factory method and LCEL-based chains.</li>
-<li><strong>Legacy Agents (`AgentExecutor`)</strong>: The old <code>langchain.agents.AgentExecutor</code> is fully deprecated. <strong>This document is updated</strong> to use the modern <code>create_agent</code> harness. For custom flows, LangGraph (e.g., <code>langgraph.prebuilt.create_react_agent</code>) is directly recommended.</li>
-</ul>
-</details>
+#### Modern Import Rules & Deprecations
+- **Legacy Monolithic Imports:** Direct imports like `from langchain.chat_models import ChatOpenAI` or `from langchain.agents import AgentExecutor` are deprecated.
+- **Modern Standard:** Import models via `init_chat_model` or partner packages (`langchain_openai`, `langchain_groq`), Runnables and messages from `langchain_core`, and agent execution from `langchain.agents` / `langgraph`.
 
-**Method A: Using LangChain's Factory Function**
+---
+
+### 9.1 Models, Chat Models & Universal SDK Initializers <a id="models-and-chat-models" name="models-and-chat-models"></a>
+
+#### 9.1.1 Models (LLMs) vs Chat Models <a id="models-vs-chat-models" name="models-vs-chat-models"></a>
+
+In LangChain, model abstractions are strictly divided into two paradigms:
+
+| Architectural Property | Traditional LLMs (`BaseLLM`) | Modern Chat Models (`BaseChatModel`) |
+| :--- | :--- | :--- |
+| **Input Type** | Raw unstructured `str` | Ordered list of `BaseMessage` (`System`, `Human`, `AI`, `Tool`) |
+| **Output Type** | Raw unstructured `str` | Structured `AIMessage` with `content`, `tool_calls`, and `usage_metadata` |
+| **Role Awareness** | None (relies on manual prompt formatting) | Native support for System prompts, User inputs, and Assistant turns |
+| **Function / Tool Calling** | No native protocol; relies on regex parsing | Native provider API integration via `bind_tools()` |
+| **Multimodal Inputs** | Text only | Structured JSON payloads supporting image URLs, base64 images, and audio |
+| **Standard Usage** | Legacy completion models (e.g. `gpt-3.5-turbo-instruct`) | All modern models (`gpt-4o`, `claude-3-5-sonnet`, `gemini-1.5-flash`) |
+
+#### 9.1.2 Universal Factory: `init_chat_model()` <a id="universal-factory-init-chat-model" name="universal-factory-init-chat-model"></a>
+
+`init_chat_model()` is LangChain's recommended universal initialization factory. It enables dynamic model and provider swapping at runtime without changing application code:
+
 ```python
-# Uses environment variables (OPENAI_API_KEY, OPENAI_BASE_URL) automatically
-llm = init_chat_model("openai:gpt-4.1-mini") 
-```
+import os
+from langchain.chat_models import init_chat_model
 
-**Method B: Making a Model Using Native Client (OpenAI API directly)**
-If you want to bypass LangChain and interact with the LLM directly using a client:
-```python
-from openai import OpenAI
-
-# Initialize the client
-client = OpenAI(
-    api_key="your_api_key",
-    base_url="https://api.euron.one/api/v1/euri" # Optional: for custom providers
+# Syntax 1: Provider-prefixed model string
+llm_openai = init_chat_model(
+    model="openai:gpt-4o-mini",
+    temperature=0.0,
+    max_tokens=2000
 )
 
-# Make a model request using the client
+# Syntax 2: Explicit provider parameter
+llm_groq = init_chat_model(
+    model="llama-3.3-70b-versatile",
+    model_provider="groq",
+    temperature=0.2,
+    max_tokens=2048
+)
+
+# Syntax 3: Google Gemini
+llm_gemini = init_chat_model(
+    model="google_genai:gemini-1.5-flash",
+    temperature=0.1
+)
+
+# Syntax 4: Anthropic Claude
+llm_claude = init_chat_model(
+    model="anthropic:claude-3-5-sonnet-20241022",
+    temperature=0.0
+)
+```
+
+#### 9.1.3 Dedicated Partner SDKs <a id="partner-sdks" name="partner-sdks"></a>
+
+When provider-specific flags or direct instantiation is required, use the dedicated partner libraries:
+
+```python
+# 1. OpenAI Partner SDK
+from langchain_openai import ChatOpenAI
+llm_openai = ChatOpenAI(
+    model="gpt-4o-mini",
+    temperature=0.0,
+    max_tokens=1500,
+    api_key=os.getenv("OPENAI_API_KEY"),
+    base_url=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1") # Supports Euron / vLLM / Ollama
+)
+
+# 2. Groq Partner SDK (LPU High-Speed Inference)
+from langchain_groq import ChatGroq
+llm_groq = ChatGroq(
+    model="llama-3.3-70b-versatile",
+    temperature=0.1,
+    max_retries=2
+)
+
+# 3. Google GenAI Partner SDK
+from langchain_google_genai import ChatGoogleGenerativeAI
+llm_gemini = ChatGoogleGenerativeAI(
+    model="gemini-1.5-flash",
+    temperature=0.1
+)
+
+# 4. Anthropic Partner SDK
+from langchain_anthropic import ChatAnthropic
+llm_anthropic = ChatAnthropic(
+    model="claude-3-5-sonnet-20241022",
+    temperature=0.0
+)
+```
+
+#### 9.1.4 Native Direct Provider SDKs vs LangChain Wrappers <a id="native-sdks-vs-langchain" name="native-sdks-vs-langchain"></a>
+
+```python
+# Native OpenAI SDK (Direct API)
+from openai import OpenAI
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 response = client.chat.completions.create(
-    model="gpt-4.1-mini",
-    messages=[{"role": "user", "content": "What is Deep Learning?"}]
+    model="gpt-4o-mini",
+    temperature=0.0,
+    messages=[{"role": "user", "content": "What is RAG?"}]
 )
 print(response.choices[0].message.content)
 ```
 
-#### 2. Custom RAG Chain using LCEL (LangChain Expression Language) <a id="lcel-rag-chain" name="lcel-rag-chain"></a>
+| Engineering Feature | Native Provider SDK (e.g. `openai.OpenAI`) | LangChain Wrapper (`ChatOpenAI` / `init_chat_model`) |
+| :--- | :--- | :--- |
+| **Vendor Lock-in** | High (Code is tightly bound to provider's custom API schemas) | Zero (Unified `BaseChatModel` interface across 100+ providers) |
+| **LCEL Pipe Composition** | Incompatible with `\|` syntax; requires manual glue code | First-class Runnable; pipes directly with retrievers and parsers |
+| **Streaming Abstraction** | Manual chunk iteration and response buffer reconstruction | Standardized `stream()` returning unified `AIMessageChunk` |
+| **Observability & Tracing** | Requires manual telemetry or OpenTelemetry instrumentation | Automatic zero-code distributed tracing via LangSmith |
+| **Tool Calling Schemas** | Requires manually authoring raw OpenAI JSON schemas | Converts Python `@tool` functions and Pydantic models automatically |
+| **Structured Output** | Requires manual JSON schema definitions or response format | Built-in `model.with_structured_output(PydanticModel)` |
 
-**LCEL (LangChain Expression Language)** is a declarative way to compose and chain artificial intelligence building blocks—such as prompts, models, and parsers—using the pipe operator (`|`). [[1](https://www.geeksforgeeks.org/artificial-intelligence/langchain/), [2](https://www.langchain.com/blog/langchain-expression-language)]
+#### 9.1.5 The 6 Universal Execution Methods (Runnable Protocol) <a id="six-execution-methods" name="six-execution-methods"></a>
 
-##### 🧠 What is LCEL?
-* **Declarative Composition:** You define what components to connect, and data flows automatically from left to right.
-* **The Runnable Protocol:** Every core element in LCEL implements a standard interface (Runnables) that handles execution seamlessly.
-* **Basic Syntax:** A standard workflow looks like `chain = prompt | llm | output_parser`. [[1](https://cobusgreyling.medium.com/what-is-langchain-expression-language-lcel-8a828c38b37d), [2](https://langchain-opentutorial.gitbook.io/langchain-opentutorial/01-basic/07-lcel-interface), [3](https://www.aurelio.ai/learn/langchain-lcel), [4](https://www.geeksforgeeks.org/artificial-intelligence/langchain/)]
-
-##### 🚀 Key Features & Benefits
-* **Out-of-the-Box Execution Modes:** Supports synchronous (`invoke`), asynchronous (`ainvoke`), batch (`batch`), and streaming (`stream`) execution without changing your code. [[1](https://www.youtube.com/watch?v=8aUYzb1aYDU&t=1), [2](https://k21academy.com/ai-ml/langchain-expression-language/), [3](https://langchain-opentutorial.gitbook.io/langchain-opentutorial/01-basic/07-lcel-interface)]
-* **Automatic Parallelism:** Steps that can run concurrently do so automatically to boost runtime efficiency. [[1](https://k21academy.com/ai-ml/langchain-expression-language/)]
-* **Production Ready:** Designed to transition smoothly from local prototypes to production environments with built-in logging and tracing via platforms like LangSmith. [[1](https://www.artefact.com/blog/unleashing-the-power-of-langchain-expression-language-lcel-from-proof-of-concept-to-production/), [2](https://www.langchain.com/blog/langchain-expression-language), [3](https://k21academy.com/ai-ml/langchain-expression-language/)]
+Every LangChain model and chain implements the **Runnable Interface**, exposing 6 standard execution methods:
 
 ```python
-# Initialize LLM
-llm = init_chat_model("openai:gpt-4.1-mini") 
+from langchain_core.messages import HumanMessage
 
-# Define a custom prompt template
-custom_prompt = ChatPromptTemplate.from_template("""Use the following context to answer the question. 
-If you don't know the answer based on the context, say you don't know.
-Provide specific details from the context to support your answer.
+# 1. invoke() - Synchronous single input call
+response = llm_openai.invoke("Explain vector embeddings in 1 sentence.")
+print("invoke:", response.content)
 
-Context:
-{context}
-                                                 
-Question: {question}
+# 2. ainvoke() - Asynchronous single input call (FastAPI / asyncio)
+# response = await llm_openai.ainvoke("Explain vector embeddings in 1 sentence.")
 
-Answer: """)
+# 3. stream() - Synchronous real-time token streaming
+print("stream: ", end="")
+for chunk in llm_openai.stream("List 3 advantages of FAISS"):
+    print(chunk.content, end="", flush=True)
+print()
 
-# Setup retriever
-retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
+# 4. astream() - Asynchronous streaming generator (WebSockets / SSE)
+# async for chunk in llm_openai.astream("Explain HNSW"):
+#     yield chunk.content
 
-# Helper function to format retrieved documents
-def format_docs(docs):
-    return "\n\n".join(doc.page_content for doc in docs)
-
-# Build the custom RAG Chain using LCEL
-rag_chain_lcel = (
-    {
-        "context": retriever | format_docs, 
-        "question": RunnablePassthrough()
-    }
-    | custom_prompt
-    | llm
-    | StrOutputParser()
+# 5. batch() - Synchronous parallel batch execution with concurrency throttling
+batch_responses = llm_openai.batch(
+    ["What is ChromaDB?", "What is Pinecone?", "What is Qdrant?"],
+    config={"max_concurrency": 2}
 )
+for r in batch_responses:
+    print("batch item:", r.content[:50], "...")
 
-# Test/Invoke the chain
-response = rag_chain_lcel.invoke("What is Deep Learning")
+# 6. abatch() - Asynchronous parallel batch execution
+# async_responses = await llm_openai.abatch(["Query 1", "Query 2"])
+```
 
-# Query function using the LCEL approach
-def query_rag_lcel(question):
-    print(f"Question: {question}")
-    print("-" * 50)
+#### 9.1.6 Autoregressive Generation & Decoding Parameters <a id="model-parameters-overview" name="model-parameters-overview"></a>
+
+During inference, the model generates text token-by-token autoregressively. Inference parameters control the stochastic decoding process:
+
+```
+Input Tokens ──▶ [Transformer Forward Pass] ──▶ Raw Logit Vector z ∈ ℝ^|V|
+                                                        │
+                                                        ▼
+                                           [Temperature Scaling: z_i / T]
+                                                        │
+                                                        ▼
+                                          [Softmax: P(w_i) = e^(z_i/T) / ∑ e^(z_j/T)]
+                                                        │
+                                                        ▼
+                                         [Top-P / Nucleus Truncation: ∑ P ≥ p]
+                                                        │
+                                                        ▼
+                                            [Sample Next Token w*]
+                                                        │
+                                                        ▼
+                                       [Append w* & Autoregress until EOS/Max Tokens]
+```
+
+##### Core Generation Hyperparameters Matrix
+
+| Hyperparameter | Type | Default | Valid Range | Algorithmic Mechanism | Production RAG Guideline |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `temperature` | `float` | `0.7` | `0.0` – `2.0` | Divides logits prior to softmax; controls probability entropy | **`0.0` – `0.2`** (strict fidelity to retrieved chunks) |
+| `top_p` (Nucleus) | `float` | `1.0` | `0.0` – `1.0` | Filters out tail tokens whose cumulative mass exceeds $p$ | **`0.9` – `1.0`** (cuts off bizarre outlier vocabulary) |
+| `max_tokens` / `max_completion_tokens` | `int` | Provider default | `1` – Model Limit | Hard stopping threshold on newly generated tokens | **`1000` – `4000`** (sized to expected answer length + buffer) |
+| `presence_penalty` | `float` | `0.0` | `-2.0` – `2.0` | Constant penalty for tokens appearing $\ge 1$ time in context | `0.0` (avoid penalizing recurring technical keywords) |
+| `frequency_penalty`| `float` | `0.0` | `-2.0` – `2.0` | Proportional penalty scaling with token frequency | `0.0` – `0.1` |
+| `stop` | `list[str]` | `None` | Strings | Immediate generator termination tokens | `["\n\n", "Observation:"]` for agent loops |
+
+##### Temperature: Randomness vs Determinism & Grounding in RAG <a id="temperature-deepdive" name="temperature-deepdive"></a>
+$$P(w_i) = \frac{\exp(z_i / T)}{\sum_{j=1}^{|V|} \exp(z_j / T)}$$
+- **$T = 0.0$ (Greedy Decoding / Argmax):** Mathematically, $\lim_{T \to 0} P(w_{\text{max}}) = 1.0$. The model deterministically selects the highest-scoring token. It is reproducible, cacheable, and eliminates hallucination.
+- **$0.1 \le T \le 0.3$ (Factual RAG & Data Extraction):** Introduces slight variation to avoid robotic looping while preserving strict semantic grounding in the retrieved context documents.
+- **$0.7 \le T \le 0.9$ (General Conversational Dialogue):** Standard balance between coherence and conversational naturalness.
+- **$T \ge 1.0$ (High Entropy / Creative Brainstorming):** Compresses logits towards uniformity, causing lower-ranked tokens to be selected frequently.
+
+> [!IMPORTANT]
+> **The Production RAG Law:** In enterprise RAG, **hallucination is catastrophic**. If the temperature is set high ($T \ge 0.7$), the model is more likely to ignore the retrieved text in favor of its pre-training weights, fabricating citations and facts. **Always use $T \le 0.2$ for RAG synthesis**.
+
+##### Top P (Nucleus Sampling) vs Top K <a id="top-p-deepdive" name="top-p-deepdive"></a>
+Instead of considering all 100,000+ vocabulary tokens, **Nucleus Sampling (Top P)** sorts candidate tokens by descending probability and keeps only the smallest subset whose cumulative probability sums to threshold $p$:
+$$\sum_{i=1}^{k^*} P(w_{(i)}) \ge p \quad \text{where} \quad P(w_{(1)}) \ge P(w_{(2)}) \ge \dots$$
+* **Top K ($K=40$):** Retains a static count of $K$ tokens regardless of the distribution shape. If the model is 99.9% confident in one word, Top K still samples from 39 noise tokens.
+* **Top P ($p=0.90$):** Dynamically adjusts candidate count $k^*$. When confidence is high, the nucleus contains only 1–2 tokens. When confidence is low, the nucleus expands dynamically.
+
+> [!TIP]
+> **Tuning Rule of Thumb:** **Never tune both `temperature` and `top_p` at the same time**. Modifying both creates chaotic sampling interactions. Set `top_p = 1.0` and tune `temperature`, or fix `temperature = 1.0` and tune `top_p`.
+
+##### Max Tokens & Completion Budgets <a id="max-tokens-deepdive" name="max-tokens-deepdive"></a>
+$$\text{Total Tokens} = \text{Prompt (Retrieved Docs + Query + History)} + \text{Completion (Generated Output)} \le \text{Context Window}$$
+- **Truncation Hazard (`finish_reason="length"`):** If generation reaches `max_tokens`, generation is cut off immediately mid-token. In JSON and structured output parsing, this results in fatal syntax errors like `Unterminated string` or missing closing brackets `}`.
+- **Cost & Latency Control:** Output tokens are 3x–4x more expensive than prompt tokens and generate sequentially (~25–50ms per token). Setting `max_tokens` protects systems against runaway generation loops.
+- **Modern Reasoning Models Note:** In models like OpenAI `o1`, `o3-mini`, internal reasoning/thinking tokens are deducted from the completion budget (`max_completion_tokens`). Setting this limit too low can starve the model, resulting in zero visible output.
+
+#### 9.1.7 Real-Time Streaming Architecture (`stream` & `astream`) <a id="streaming-deepdive" name="streaming-deepdive"></a>
+
+LLMs produce tokens iteratively. Without streaming, a 600-word response requires users to wait 6–10 seconds. Streaming delivers tokens over **Server-Sent Events (SSE)** as they are generated.
+
+- **Time-To-First-Token (TTFT):** Perceived latency drops from seconds to ~250ms.
+- **Chunk Aggregation:** LangChain's `AIMessageChunk` natively implements the `+` operator, accumulating text, metadata, and tool calls automatically.
+
+```python
+full_response = None
+for chunk in llm_openai.stream("Explain HNSW vector indexing"):
+    print(chunk.content, end="", flush=True)
+    full_response = chunk if full_response is None else full_response + chunk
+
+print("\n\nTotal Tokens Generated:", full_response.usage_metadata)
+```
+
+#### 9.1.8 Canonical Message State & Token Tracking <a id="canonical-messages" name="canonical-messages"></a>
+
+Modern chat models communicate via 4 canonical message classes:
+
+```python
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, ToolMessage
+
+messages = [
+    SystemMessage(content="You are a strict legal contract analysis assistant."),
+    HumanMessage(content="What is the termination clause in section 4.2?"),
+    AIMessage(content="Section 4.2 requires a 30-day written notice for termination."),
+    # ToolMessage represents output from an executed tool
+    ToolMessage(content='{"status": "verified"}', tool_call_id="call_99182")
+]
+
+# Accurate Token Accounting via usage_metadata
+ai_msg = llm_openai.invoke(messages[:2])
+print("Token Accounting:")
+print("Input Tokens :", ai_msg.usage_metadata.get("input_tokens"))
+print("Output Tokens:", ai_msg.usage_metadata.get("output_tokens"))
+print("Total Tokens :", ai_msg.usage_metadata.get("total_tokens"))
+```
+
+#### 9.1.9 Tool Anatomy & Function Calling Lifecycle <a id="function-calling-deepdive" name="function-calling-deepdive"></a>
+
+> [!IMPORTANT]
+> **FUNDAMENTAL PRINCIPLE — THE MODEL DOES NOT EXECUTE CODE:**
+> Function calling is a communication protocol. When an LLM "calls a function", it **never runs code**. It merely outputs a JSON schema stating which function to run and with what arguments. The hosting Python application executes the function and feeds the return value back to the model.
+
+```
+[User Question]
+       │
+       ▼
+1. LLM Evaluation: Model inspects query against registered tool schemas
+       │
+       ▼
+2. Tool Call Emission: LLM emits AIMessage with tool_calls payload:
+   {"name": "fetch_stock_price", "args": {"ticker": "AAPL"}, "id": "call_001"}
+       │
+       ▼
+3. Local Function Execution: Python app runs fetch_stock_price(ticker="AAPL") -> 228.50
+       │
+       ▼
+4. Context Injection: Python app sends ToolMessage back:
+   ToolMessage(content="228.50", tool_call_id="call_001")
+       │
+       ▼
+5. Final Answer Generation: LLM reads ToolMessage and formats final user response:
+   "Apple's current stock price is $228.50."
+```
+
+```python
+from langchain_core.tools import tool
+from langchain_core.messages import HumanMessage, ToolMessage
+
+# 1. Define Tool with Type Hints & Clear Docstring
+@tool
+def calculate_compound_interest(principal: float, rate: float, years: int) -> float:
+    """Calculate compound interest given principal amount, annual rate (0-1), and years.
     
-    # Pass string query directly to the chain
-    answer = rag_chain_lcel.invoke(question)
-    print(f"Answer: {answer}")
-    
-    # Get source documents separately for inspection
-    docs = retriever.invoke(question)
-    print("\nSource Documents:")
-    for i, doc in enumerate(docs):
-        print(f"\n--- Source {i+1} ---")
-        print(doc.page_content[:200] + "...")
+    Args:
+        principal: Starting balance in dollars
+        rate: Annual interest rate as a decimal (e.g. 0.05 for 5%)
+        years: Number of years invested
+    """
+    return round(principal * ((1 + rate) ** years), 2)
 
-# Run verification
-query_rag_lcel("What are the key concepts in reinforcement learning?")
+# 2. Bind Tools to Model
+model_with_tools = llm_openai.bind_tools([calculate_compound_interest])
+
+# 3. Send Prompt and Receive Tool Request
+messages = [HumanMessage(content="If I invest $10,000 at 7% for 5 years, how much will I have?")]
+ai_msg = model_with_tools.invoke(messages)
+messages.append(ai_msg)
+
+# 4. Execute the Tool Call Locally
+for tool_call in ai_msg.tool_calls:
+    if tool_call["name"] == "calculate_compound_interest":
+        tool_output = calculate_compound_interest.invoke(tool_call["args"])
+        # Match output to call via tool_call_id
+        messages.append(ToolMessage(content=str(tool_output), tool_call_id=tool_call["id"]))
+
+# 5. Synthesize Final Grounded Answer
+final_answer = model_with_tools.invoke(messages)
+print(final_answer.content)
+# "At a 7% interest rate compounded over 5 years, your $10,000 investment will grow to $14,025.52."
 ```
-
-#### 3. Conversational RAG Chain (With History/Memory) <a id="conversational-rag" name="conversational-rag"></a>
-
-##### Imports
-```python
-# Document Retrieval & Chain Construction
-from langchain.chains import create_history_aware_retriever, create_retrieval_chain
-from langchain.chains.combine_documents import create_stuff_documents_chain
-
-# Local Vector Database & Embeddings
-from langchain_chroma import Chroma
-from langchain_openai import OpenAIEmbeddings
-
-# Prompts & Messages
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.messages import HumanMessage, AIMessage
-from langchain.chat_models import init_chat_model
-```
-
-##### Full Execution Code
-```python
-# Initialize empty chat history list
-chat_history = []
-
-# 1. Setup Vector Store Retriever & LLM
-embedding = OpenAIEmbeddings(model="text-embedding-3-small")
-vector_store = Chroma(persist_directory="./chroma_db", embedding_function=embedding)
-retriever = vector_store.as_retriever(search_kwargs={"k": 3})
-
-llm = init_chat_model("gpt-4o-mini", model_provider="openai")
-
-# 2. Contextualize Question Prompt (Reformulates question using history context)
-contextualize_q_system_prompt = """Given a chat history and the latest user question 
-which might reference context in the chat history, formulate a standalone question 
-which can be understood without the chat history. Do NOT answer the question, 
-just reformulate it if needed and otherwise return it as is."""
-
-contextualize_q_prompt = ChatPromptTemplate.from_messages([
-    ("system", contextualize_q_system_prompt),
-    MessagesPlaceholder("chat_history"),
-    ("human", "{input}"),
-])
-
-# 3. Create History-Aware Retriever
-history_aware_retriever = create_history_aware_retriever(
-    llm, retriever, contextualize_q_prompt
-)
-
-# 4. Answer Generation Prompt
-qa_system_prompt = """You are an assistant for question-answering tasks. 
-Use the following pieces of retrieved context to answer the question. 
-If you don't know the answer, just say that you don't know. 
-Use three sentences maximum and keep the answer concise.
-
-Context: {context}"""
-
-qa_prompt = ChatPromptTemplate.from_messages([
-    ("system", qa_system_prompt),
-    MessagesPlaceholder("chat_history"),
-    ("human", "{input}"),
-])
-
-# 5. Build Complete Conversational RAG Chain
-question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
-conversational_rag_chain = create_retrieval_chain(
-    history_aware_retriever, 
-    question_answer_chain
-)
-
-# Turn 1: Initial Question
-result1 = conversational_rag_chain.invoke({
-    "chat_history": chat_history,
-    "input": "What is machine learning?"
-})
-print(f"Q: What is machine learning?")
-print(f"A: {result1['answer']}\n")
-
-# Update history
-chat_history.extend([
-    HumanMessage(content="What is machine learning?"),
-    AIMessage(content=result1['answer'])
-])
-
-# Turn 2: Follow-up question (refers to ML from previous question)
-result2 = conversational_rag_chain.invoke({
-    "chat_history": chat_history,
-    "input": "What are its main types?"
-})
-print(f"Q: What are its main types?")
-print(f"A: {result2['answer']}")
-```
-
-#### 4. Modern RAG Chain (Using LangChain Classic Retrieval Chain) <a id="classic-rag-chain" name="classic-rag-chain"></a>
-![alt text](image-1.png)
-The classic RAG chain uses helper functions like `create_stuff_documents_chain` and `create_retrieval_chain` to quickly stitch together a retriever, prompt, and LLM.
-
-```python
-import os
-from langchain_openai import OpenAIEmbeddings
-from langchain_chroma import Chroma
-from langchain_classic.chains import create_retrieval_chain
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_classic.chains.combine_documents import create_stuff_documents_chain
-
-# Configure Environment (Euron API compatibility)
-os.environ["OPENAI_API_KEY"] = os.getenv("EURI_API_KEY")
-os.environ["OPENAI_BASE_URL"] = "https://api.euron.one/api/v1/euri"
-
-sample_text = "Machine Learning is fascinating"
-embeddings = OpenAIEmbeddings()
-
-persist_directory = "./chroma_db"
-
-# Create a ChromaDB vector store
-vectorstore = Chroma.from_documents(
-    documents=chunks,
-    embedding=embeddings,
-    persist_directory=persist_directory,
-    collection_name="rag_collection"
-)
-
-print(f"Vector store named : {vectorstore._collection.name} ")
-print(f"Vector store created with {vectorstore._collection.count()} vectors")
-print(f"Persisted to: {persist_directory}")
-
-# Setup retriever
-retriever = vectorstore.as_retriever(
-    search_kwargs={"k": 3}
-)
-
-# Setup prompt template
-system_prompt = """You are an assistant for question-answering tasks. 
-Use the following pieces of retrieved context to answer the question. 
-If you don't know the answer, just say that you don't know. 
-Use three sentences maximum and keep the answer concise.
-
-Context: {context}"""
-
-prompt = ChatPromptTemplate.from_messages([
-    ("system", system_prompt),
-    ("human", "{input}")
-])
-
-# Create stuff documents chain & retrieval chain
-document_chain = create_stuff_documents_chain(llm, prompt)
-rag_chain = create_retrieval_chain(retriever, document_chain)
-
-# Invoke the RAG chain
-response = rag_chain.invoke({"input": "What is Deep Learning"})
-```
-
-#### 5. When to Use vs. When NOT to Use `format_docs` in LangChain <a id="format-docs-guide" name="format-docs-guide"></a>
-
-In LangChain, deciding whether you need a `format_docs` helper depends entirely on **how your chain is constructed**:
 
 ---
 
-##### 1. **When to USE `format_docs`** 
-👉 **When building custom LCEL (LangChain Expression Language) chains directly.**
+### 9.2 Prompt Templates & Prompt Engineering within LangChain <a id="prompts-and-engineering" name="prompts-and-engineering"></a>
+
+Prompt templates decouple prompt text, variables, formatting rules, and system guardrails from application logic.
+
+#### 9.2.1 String `PromptTemplate` vs `ChatPromptTemplate` <a id="prompt-templates" name="prompt-templates"></a>
+
+```python
+from langchain_core.prompts import PromptTemplate, ChatPromptTemplate
+
+# 1. String-based PromptTemplate (for raw string completions)
+string_prompt = PromptTemplate.from_template(
+    "Explain the concept of {concept} to a {audience_level}."
+)
+formatted_str = string_prompt.format(concept="Vector Embeddings", audience_level="high schooler")
+
+# 2. Modern Message-based ChatPromptTemplate (for Chat Models)
+chat_prompt = ChatPromptTemplate.from_messages([
+    ("system", "You are an expert AI tutor. Respond using concise bullet points."),
+    ("human", "Explain {topic} in {num_points} key points.")
+])
+formatted_messages = chat_prompt.format_messages(topic="HNSW indexing", num_points=3)
+```
+
+#### 9.2.2 Dynamic Conversations with `MessagesPlaceholder` <a id="messages-placeholder" name="messages-placeholder"></a>
+
+`MessagesPlaceholder` reserves a slot in the prompt for a dynamically growing list of message objects (`HumanMessage`, `AIMessage`, `ToolMessage`):
+
+```python
+from langchain_core.prompts import MessagesPlaceholder
+
+conversational_prompt = ChatPromptTemplate.from_messages([
+    ("system", "You are a helpful customer support agent."),
+    MessagesPlaceholder(variable_name="chat_history"),
+    ("human", "{user_input}")
+])
+
+# Injecting conversation history dynamically
+messages_payload = conversational_prompt.format_messages(
+    chat_history=[
+        HumanMessage(content="My order ID is 4491."),
+        AIMessage(content="Thank you. What is the issue with order 4491?")
+    ],
+    user_input="The item arrived damaged."
+)
+```
+
+#### 9.2.3 Partial Prompt Formatting (`.partial()`) <a id="partial-prompts" name="partial-prompts"></a>
+
+`.partial()` allows binding variables early (such as system rules or dynamic date functions) while leaving other variables to be supplied at query time:
+
+```python
+from datetime import datetime
+
+base_prompt = ChatPromptTemplate.from_messages([
+    ("system", "Today is {current_date}. Answer strictly from the provided context."),
+    ("human", "{question}")
+])
+
+# Bind static values or dynamic callable functions
+partial_prompt = base_prompt.partial(
+    current_date=lambda: datetime.now().strftime("%Y-%m-%d")
+)
+
+# At invocation time, only {question} is required
+final_msgs = partial_prompt.format_messages(question="When was the company founded?")
+```
+
+#### 9.2.4 Few-Shot Prompting (`FewShotChatMessagePromptTemplate`) <a id="few-shot-prompts" name="few-shot-prompts"></a>
+
+Few-shot prompting conditions the model by showing exemplar question/answer pairs, drastically reducing formatting errors and hallucination:
+
+```python
+from langchain_core.prompts import FewShotChatMessagePromptTemplate
+
+# 1. Define exemplar pairs
+examples = [
+    {"input": "2 + 2", "output": "4"},
+    {"input": "2 + 3", "output": "5"}
+]
+
+# 2. Define example formatting template
+example_prompt = ChatPromptTemplate.from_messages([
+    ("human", "{input}"),
+    ("ai", "{output}")
+])
+
+# 3. Assemble FewShot template
+few_shot_prompt = FewShotChatMessagePromptTemplate(
+    example_prompt=example_prompt,
+    examples=examples
+)
+
+# 4. Integrate into final ChatPromptTemplate
+final_chat_prompt = ChatPromptTemplate.from_messages([
+    ("system", "You are a mathematical calculator. Output only the numerical answer."),
+    few_shot_prompt,
+    ("human", "{input}")
+])
+```
+
+#### 9.2.5 Prompt Engineering Strategies within LangChain <a id="prompt-engineering-strategies" name="prompt-engineering-strategies"></a>
+
+1. **System Guardrails & Role Demarcation:**
+   Always isolate instructions in a dedicated `("system", ...)` message rather than embedding them in user text. This prevents user prompt injection attacks.
+2. **Delimited Context Grounding:**
+   Enclose retrieved chunks in distinct Markdown delimiters (`### Context\n{context}\n### End Context`) to help the LLM clearly differentiate reference data from query text.
+3. **Strict Negative Constraints:**
+   Explicitly instruct: *"If the provided context does not contain sufficient facts to answer the question, state 'I do not have enough information to answer based on the provided documents.' Do not attempt to extrapolate."*
+4. **Chain-of-Thought (CoT) Prompting:**
+   Instruct the model: *"Analyze the context step-by-step. First, identify relevant quotes from the context. Second, synthesize the answer based exclusively on those quotes."*
+
+---
+
+### 9.3 Output Parsers & Enforced Schema Structured Outputs <a id="output-parsers-and-structured-output" name="output-parsers-and-structured-output"></a>
+
+In automated RAG pipelines, LLMs must return validated data structures (e.g. citation IDs, confidence scores, entities) rather than unstructured prose.
+
+#### 9.3.1 Classic Output Parsers <a id="classic-output-parsers" name="classic-output-parsers"></a>
+
+```python
+from langchain_core.output_parsers import StrOutputParser, JsonOutputParser, PydanticOutputParser
+from pydantic import BaseModel, Field
+
+# 1. StrOutputParser: Extracts string content from AIMessage
+chain_str = chat_prompt | llm_openai | StrOutputParser()
+
+# 2. JsonOutputParser: Parses raw JSON strings without strict schemas
+json_parser = JsonOutputParser()
+json_prompt = PromptTemplate(
+    template="Return a JSON object with keys 'name' and 'score' for: {query}.\n{format_instructions}",
+    input_variables=["query"],
+    partial_variables={"format_instructions": json_parser.get_format_instructions()}
+)
+chain_json = json_prompt | llm_openai | json_parser
+
+# 3. PydanticOutputParser: Prompt-injected regex/JSON parser (Legacy Pattern)
+class ReviewSchema(BaseModel):
+    sentiment: str = Field(description="'positive' or 'negative'")
+    rating: int = Field(ge=1, le=5)
+
+pydantic_parser = PydanticOutputParser(pydantic_object=ReviewSchema)
+```
+
+#### 9.3.2 Modern Enforced Schema: `model.with_structured_output()` <a id="structured-output-deepdive" name="structured-output-deepdive"></a>
+
+Modern chat models support native schema enforcement via Function/Tool Calling APIs or JSON Grammars. This guarantees 100% syntactically valid JSON matching your schema:
+
+```python
+from pydantic import BaseModel, Field
+from typing import List, Optional
+
+# Define Strict Schema with Validation
+class RAGAnswerWithCitations(BaseModel):
+    answer: str = Field(description="Direct, factual answer grounded in retrieved documents")
+    citation_ids: List[int] = Field(description="Document chunk IDs used to verify this answer")
+    confidence_score: float = Field(ge=0.0, le=1.0, description="Confidence between 0.0 and 1.0")
+    caveats: Optional[str] = Field(default=None, description="Any missing context or caveats")
+
+# Bind Schema to Model with include_raw=True
+structured_llm = llm_openai.with_structured_output(RAGAnswerWithCitations, include_raw=True)
+
+result = structured_llm.invoke("According to doc 4 and 7, quantum supremacy was demonstrated in 2019.")
+
+if result["parsing_error"] is None:
+    parsed: RAGAnswerWithCitations = result["parsed"]
+    print(f"Answer: {parsed.answer}")
+    print(f"Citations: {parsed.citation_ids}")
+    print(f"Confidence: {parsed.confidence_score}")
+    print(f"Token Usage: {result['raw'].usage_metadata}")
+else:
+    print("Parsing Error:", result["parsing_error"])
+```
+
+#### 9.3.3 Parsing Comparison Matrix <a id="parsers-comparison-matrix" name="parsers-comparison-matrix"></a>
+
+| Metric / Capability | `PydanticOutputParser` (Classic) | `model.with_structured_output()` (Modern) |
+| :--- | :--- | :--- |
+| **Mechanism** | Prompts LLM with JSON instructions, parses with Python regex | Native API Function Calling or Constrained Grammars |
+| **Prompt Token Overhead** | High (Dumps entire JSON Schema text into user prompt) | Zero (Schema sent out-of-band via API tool parameters) |
+| **Reliability** | Susceptible to markdown backtick noise (` ```json `) | **Guaranteed valid schema** by model provider engine |
+| **Pydantic v2 Support** | Partial / Fragile | Full native support (Field descriptions, validators, limits) |
+| **Schema Formats** | Pydantic only | Pydantic v2 `BaseModel`, `TypedDict`, `@dataclass` |
+| **Best Used For** | Legacy open-source LLMs without tool-calling support | All modern enterprise models (`gpt-4o`, `claude-3-5`, `gemini`) |
+
+---
+
+### 9.4 Chains, LCEL & The Runnable Protocol <a id="lcel-and-runnables" name="lcel-and-runnables"></a>
+
+**LCEL (LangChain Expression Language)** is a declarative domain-specific language for composing AI components using the Unix-style pipe operator (`|`).
+
+#### 9.4.1 Declarative LCEL Pipe Operator (`|`) <a id="lcel-pipe" name="lcel-pipe"></a>
+
+```python
+# Simple LCEL Chain: Input -> Prompt -> Model -> Parser -> Output
+chain = prompt | llm_openai | StrOutputParser()
+```
+
+Whenever two components are piped together (`a | b`), LangChain wraps them into a `RunnableSequence`. The output of component `a` is automatically validated and piped as input into component `b`.
+
+#### 9.4.2 Core Runnable Primitives <a id="runnable-primitives" name="runnable-primitives"></a>
+
+```python
+from langchain_core.runnables import (
+    RunnablePassthrough,
+    RunnableParallel,
+    RunnableLambda,
+    RunnableBranch
+)
+
+# 1. RunnablePassthrough: Passes input unmodified
+passthrough = RunnablePassthrough()
+
+# 2. RunnablePassthrough.assign(): Appends/computes keys without overwriting existing input dict
+assign_step = RunnablePassthrough.assign(
+    context=lambda x: retriever.invoke(x["question"])
+)
+# Input:  {"question": "What is RAG?"}
+# Output: {"question": "What is RAG?", "context": [Document(...)]}
+
+# 3. RunnableParallel: Executes operations concurrently in parallel threads
+parallel_step = RunnableParallel({
+    "docs": retriever,
+    "user_query": RunnablePassthrough()
+})
+
+# 4. RunnableLambda: Wraps any Python callable into a first-class Runnable
+def clean_text(text: str) -> str:
+    return text.strip().lower()
+
+clean_runnable = RunnableLambda(clean_text)
+
+# 5. RunnableBranch: Conditional branching router
+router = RunnableBranch(
+    (lambda x: "code" in x["query"], code_chain),
+    (lambda x: "math" in x["query"], math_chain),
+    general_chain # Default fallback
+)
+```
+
+#### 9.4.3 Runtime Configuration with `RunnableConfig` <a id="runnable-config" name="runnable-config"></a>
+
+All Runnables accept an optional `config` argument for telemetry, tracing, and concurrency control:
+
+```python
+config = {
+    "tags": ["production", "rag-v1"],
+    "metadata": {"user_id": "usr_9918", "session_id": "sess_001"},
+    "max_concurrency": 4, # Max parallel workers for batch()
+    "callbacks": []        # Custom monitoring handlers
+}
+
+response = chain.invoke({"question": "What is LCEL?"}, config=config)
+```
+
+#### 9.4.4 Complete Custom LCEL RAG Pipeline <a id="lcel-rag-chain" name="lcel-rag-chain"></a>
+
+```python
+# Helper to format retrieved documents into a clean string
+def format_docs(docs):
+    return "\n\n".join(f"--- Document chunk ---\n{doc.page_content}" for doc in docs)
+
+# Prompt expecting string {context} and {question}
+rag_prompt = ChatPromptTemplate.from_template("""Use the following context to answer the question.
+If you don't know the answer based on the context, say you don't know.
+
+Context:
+{context}
+
+Question: {question}
+
+Answer:""")
+
+# Declarative LCEL RAG Chain
+rag_chain_lcel = (
+    RunnablePassthrough.assign(
+        context=lambda x: format_docs(retriever.invoke(x["question"]))
+    )
+    | rag_prompt
+    | llm_openai
+    | StrOutputParser()
+)
+
+# Invoke Chain
+answer = rag_chain_lcel.invoke({"question": "What are vector databases?"})
+print("LCEL RAG Answer:\n", answer)
+```
+
+---
+
+### 9.5 Memory, Chat History, Conversation Management & Session Handling <a id="memory-and-sessions" name="memory-and-sessions"></a>
+
+#### 9.5.1 Deprecation of Legacy Memory <a id="legacy-memory-deprecation" name="legacy-memory-deprecation"></a>
+
+> [!WARNING]
+> **Why `ConversationBufferMemory` and `ConversationSummaryMemory` were Deprecated:**
+> 1. **Hidden Side-Effects:** Legacy memory classes mutated internal state invisibly during chain calls, making distributed scaling impossible.
+> 2. **Async & Multi-Tenant Failure:** They did not cleanly support per-user session isolation (`session_id`) across concurrent async requests.
+> 3. **Modern Standard:** LangChain 0.2+ separates **Chat History Storage** from **Chain Execution** using `RunnableWithMessageHistory` and LangGraph checkpointers.
+
+#### 9.5.2 In-Memory Chat History (`ChatMessageHistory`) <a id="chat-message-history" name="chat-message-history"></a>
+
+```python
+from langchain_core.chat_history import InMemoryChatMessageHistory
+
+history = InMemoryChatMessageHistory()
+history.add_user_message("Hello, my name is Alex.")
+history.add_ai_message("Hello Alex! How can I assist you today?")
+
+print("Stored Messages:", history.messages)
+```
+
+#### 9.5.3 Session Management with `RunnableWithMessageHistory` <a id="session-management" name="session-management"></a>
+
+To support multi-user chat applications (e.g. Slack bot, web portal), map independent conversation histories to unique `session_id` keys:
+
+```python
+from langchain_core.runnables.history import RunnableWithMessageHistory
+
+# 1. Multi-Tenant Session Store (in production, use Redis or Postgres)
+session_store: dict[str, InMemoryChatMessageHistory] = {}
+
+def get_session_history(session_id: str) -> InMemoryChatMessageHistory:
+    if session_id not in session_store:
+        session_store[session_id] = InMemoryChatMessageHistory()
+    return session_store[session_id]
+
+# 2. Conversational Prompt with MessagesPlaceholder
+session_prompt = ChatPromptTemplate.from_messages([
+    ("system", "You are a concise enterprise assistant."),
+    MessagesPlaceholder(variable_name="chat_history"),
+    ("human", "{input}")
+])
+
+base_chat_chain = session_prompt | llm_openai | StrOutputParser()
+
+# 3. Wrap Chain with RunnableWithMessageHistory
+conversational_chain = RunnableWithMessageHistory(
+    base_chat_chain,
+    get_session_history,
+    input_messages_key="input",
+    history_messages_key="chat_history"
+)
+
+# 4. User 1 Session
+resp1 = conversational_chain.invoke(
+    {"input": "My favorite framework is PyTorch."},
+    config={"configurable": {"session_id": "user_alex_1"}}
+)
+print("Alex Turn 1:", resp1)
+
+# 5. User 2 Session (Completely Isolated)
+resp2 = conversational_chain.invoke(
+    {"input": "What is my favorite framework?"},
+    config={"configurable": {"session_id": "user_bob_2"}}
+)
+print("Bob Turn 1 (No knowledge of Alex):", resp2)
+
+# 6. Alex Follow-up Turn
+resp3 = conversational_chain.invoke(
+    {"input": "What is my favorite framework?"},
+    config={"configurable": {"session_id": "user_alex_1"}}
+)
+print("Alex Turn 2 (Remembers):", resp3)
+```
+
+#### 9.5.4 Context Window Token Trimming (`trim_messages()`) <a id="trim-messages" name="trim-messages"></a>
+
+Unbounded conversation histories eventually exceed the model's context window. `trim_messages()` prunes history intelligently while preserving system instructions and human/assistant turn integrity:
+
+```python
+from langchain_core.messages import trim_messages
+
+trimmed_history = trim_messages(
+    history.messages,
+    max_tokens=2000,
+    strategy="last",               # Keep most recent messages
+    token_counter=llm_openai,       # Count tokens using the exact tokenizer
+    include_system=True,           # Never prune the initial SystemMessage
+    allow_partial=False,           # Avoid slicing messages in half
+    start_on="human"               # Ensure pruned conversation begins on a user turn
+)
+```
+
+#### 9.5.5 Modern State Checkpointing with LangGraph (`thread_id`) <a id="langgraph-checkpointing" name="langgraph-checkpointing"></a>
+
+For production agentic workflows, LangGraph checkpointers persist conversation graphs directly to persistent storage (e.g. SQLite, PostgreSQL):
+
+```python
+from langgraph.checkpoint.memory import InMemorySaver
+from langchain.agents import create_agent
+
+# Initialize Memory Checkpointer
+checkpointer = InMemorySaver()
+
+# Agent automatically tracks state across steps using thread_id
+agent = create_agent(
+    model=llm_openai,
+    tools=[calculate_compound_interest],
+    checkpointer=checkpointer
+)
+
+# Step 1
+agent.invoke(
+    {"messages": [HumanMessage(content="I am 30 years old.")]},
+    config={"configurable": {"thread_id": "thread_abc123"}}
+)
+
+# Step 2: Thread persists across invocations
+response = agent.invoke(
+    {"messages": [HumanMessage(content="How old will I be in 15 years?")]},
+    config={"configurable": {"thread_id": "thread_abc123"}}
+)
+print("Agent Memory Response:", response["messages"][-1].content)
+```
+
+#### 9.5.6 Conversational RAG with Contextualized Query Reformulation <a id="conversational-rag" name="conversational-rag"></a>
+
+When a user asks follow-up questions (e.g. *"What are its advantages?"*), the vector database cannot retrieve relevant documents because the query lacks the referent noun. A **History-Aware Retriever** reformulates the query into a standalone search term before querying the database:
+
+```python
+from langchain_classic.chains import create_retrieval_chain, create_history_aware_retriever
+from langchain_classic.chains.combine_documents import create_stuff_documents_chain
+
+# 1. Step 1: Prompt to Reformulate Question based on Chat History
+contextualize_q_prompt = ChatPromptTemplate.from_messages([
+    ("system", "Given a chat history and the latest user question which might reference context in the history, "
+               "formulate a standalone question understandable without history. Do NOT answer the question."),
+    MessagesPlaceholder("chat_history"),
+    ("human", "{input}")
+])
+
+history_aware_retriever = create_history_aware_retriever(
+    llm_openai,
+    retriever,
+    contextualize_q_prompt
+)
+
+# 2. Step 2: QA Generation Prompt
+qa_prompt = ChatPromptTemplate.from_messages([
+    ("system", "You are an assistant for question-answering tasks. Use the retrieved context to answer concisely.\n\nContext:\n{context}"),
+    MessagesPlaceholder("chat_history"),
+    ("human", "{input}")
+])
+
+# 3. Step 3: Combine into Full Conversational Retrieval Chain
+qa_chain = create_stuff_documents_chain(llm_openai, qa_prompt)
+conversational_rag_chain = create_retrieval_chain(history_aware_retriever, qa_chain)
+
+# Multi-Turn Test
+chat_history = []
+
+# Turn 1
+out1 = conversational_rag_chain.invoke({
+    "chat_history": chat_history,
+    "input": "What is Semantic Chunking?"
+})
+print("Turn 1 Answer:\n", out1["answer"])
+
+# Update History
+chat_history.extend([
+    HumanMessage(content="What is Semantic Chunking?"),
+    AIMessage(content=out1["answer"])
+])
+
+# Turn 2: Query contains pronoun "it" -> automatically reformulated to "Semantic Chunking"
+out2 = conversational_rag_chain.invoke({
+    "chat_history": chat_history,
+    "input": "What distance metrics does it rely on?"
+})
+print("\nTurn 2 Answer:\n", out2["answer"])
+```
+
+---
+
+### 9.6 Pre-Built Retrieval Chains & Architecture Decision Guide <a id="classic-rag-chain" name="classic-rag-chain"></a>
+
+#### 9.6.1 Modern Classic Retrieval Chain (`create_retrieval_chain`) <a id="classic-retrieval-chain" name="classic-retrieval-chain"></a>
+
+LangChain's pre-built retrieval chain handles passing queries to retrievers, formatting documents, and bundling answers and source documents into a unified dictionary response:
+
+```python
+from langchain_classic.chains import create_retrieval_chain
+from langchain_classic.chains.combine_documents import create_stuff_documents_chain
+
+prompt = ChatPromptTemplate.from_messages([
+    ("system", "Answer strictly based on the following context:\n\n{context}"),
+    ("human", "{input}")
+])
+
+# Combine documents into prompt context
+doc_chain = create_stuff_documents_chain(llm_openai, prompt)
+
+# Link retriever with document chain
+retrieval_chain = create_retrieval_chain(retriever, doc_chain)
+
+response = retrieval_chain.invoke({"input": "Explain vector distance metrics."})
+print("Answer:", response["answer"])
+print("Source Document Count:", len(response["context"]))
+print("Source 1 Metadata:", response["context"][0].metadata)
+```
+
+#### 9.6.2 When to Use vs When NOT to Use `format_docs` <a id="format-docs-guide" name="format-docs-guide"></a>
+
+In LangChain, deciding whether you need a `format_docs` helper depends entirely on **how your chain is constructed**:
+
+##### 1. When to USE `format_docs`
+👉 **When building custom LCEL chains directly (`retriever | format_docs | prompt`).**
 
 ```python
 # Pure LCEL Pipeline
@@ -1677,8 +2290,8 @@ rag_chain = (
 ###### Why it's needed here:
 - `retriever` returns a Python list of `Document` objects (`List[Document]`).
 - A standard `ChatPromptTemplate` expects a **string** for `{context}`.
-- If you pass `List[Document]` directly without `format_docs`, the prompt will receive the raw Python object representation (e.g. `[Document(page_content='...'), ...]`), wasting tokens and confusing the LLM.
-- **You also use `format_docs` when you want custom formatting**, such as injecting metadata/source attribution into the context:
+- If you pass `List[Document]` directly without `format_docs`, the prompt receives the raw Python object representation (`[Document(page_content='...'), ...]`), wasting tokens and confusing the LLM.
+- **Custom Metadata Attribution:** Use `format_docs` to inject source citations directly into the prompt context:
   ```python
   def format_docs_with_sources(docs):
       return "\n\n".join(
@@ -1687,46 +2300,47 @@ rag_chain = (
       )
   ```
 
----
-
-##### 2. **When NOT to use `format_docs`**
+##### 2. When NOT to use `format_docs`
 👉 **When using LangChain’s pre-built helper chains like `create_stuff_documents_chain` and `create_retrieval_chain`.**
 
 ```python
-# Built-in LangChain Helpers
 question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
 rag_conversational_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
 ```
 
 ###### Why you don't need it here:
-- `create_stuff_documents_chain` is built specifically to accept `List[Document]` as its input.
-- **It formats documents internally** using its default document template (`{page_content}`) and joins them with `\n\n`.
-- `create_retrieval_chain` passes the raw `docs` into `create_stuff_documents_chain`, and also preserves the original `List[Document]` in the final output dictionary (`response["context"]`), allowing you to inspect sources, scores, or metadata later.
-- If you manually pass a pre-formatted string instead of `List[Document]` to `create_stuff_documents_chain`, it will fail because it expects document objects.
+- `create_stuff_documents_chain` is engineered specifically to accept `List[Document]`.
+- **It formats documents internally** using its internal document template and joins them with `\n\n`.
+- `create_retrieval_chain` preserves the original `List[Document]` in the final output dictionary (`response["context"]`), allowing downstream citation inspection and score evaluation.
 
----
+##### Architecture Decision Matrix
 
-##### Quick Comparison Summary
-
-| Feature | LCEL Chain (`retriever \| format_docs \| prompt`) | Pre-built Chain (`create_stuff_documents_chain`) |
+| Dimension | LCEL Pipeline (`retriever \| format_docs \| prompt`) | Pre-Built Helper (`create_retrieval_chain`) |
 | :--- | :--- | :--- |
-| **`format_docs` required?** | **Yes** (Must convert `List[Document]` $\rightarrow$ `str`) | **No** (Handles formatting internally) |
-| **Input to `{context}` in prompt** | Plain String | Raw `List[Document]` handled under the hood |
-| **Final Output** | Typically just the string response | Dictionary containing `answer` + raw `context` docs |
-| **Custom formatting** | Handled in your Python function | Configured via `document_prompt` & `document_separator` |
-| **Best suited for** | Lightweight, fully customized, streaming LCEL pipelines | Standard RAG, multi-turn chat history, and source tracking |
+| **`format_docs` required?** | **Yes** (Must serialize `List[Document]` $\to$ `str`) | **No** (Handled automatically internally) |
+| **Input to `{context}` in prompt** | Plain formatted string | Raw `List[Document]` passed directly |
+| **Final Output** | String answer (`StrOutputParser`) | Dictionary containing `answer` + raw `context` docs |
+| **Custom formatting** | Custom Python lambda or formatting function | Configured via `document_prompt` & `document_separator` |
+| **Best suited for** | Lightweight, fully customized, streaming LCEL pipelines | Standard enterprise RAG, multi-turn chat, source citation tracking |
 
 ---
 
-### What They Do
-*   `ChatOpenAI` / `init_chat_model`: Direct instantiation vs a configurable factory helper to initialize chat models.
-*   `ChatPromptTemplate`: Creates structured message prompts for the LLM.
-*   `StrOutputParser`: Extracts the string content from the LLM's response message object.
-*   `RunnablePassthrough`: Passes the input unmodified through the current step (useful for mapping user queries).
-*   `format_docs`: Custom helper function to transform a `List[Document]` into a clean concatenated string for raw LCEL prompt context injection.
-*   `create_stuff_documents_chain`: Combines a list of documents into a single prompt template context window.
-*   `create_retrieval_chain`: Chains a retriever and stuff-documents chain together.
-*   `create_history_aware_retriever`: Combines conversation history and user query, asking the LLM to draft a standalone query *before* searching the Vector DB. Ensures correct pronoun resolution (e.g. "it", "them").
+#### 9.6.3 Stage 7 Glossary & Key Classes Reference
+
+* `init_chat_model`: Recommended universal factory function to initialize any chat model across providers.
+* `ChatOpenAI`, `ChatGroq`, `ChatGoogleGenerativeAI`, `ChatAnthropic`: Provider-specific Chat Model wrappers.
+* `ChatPromptTemplate` & `PromptTemplate`: Factory classes for structuring multi-turn and string prompts with typed variables.
+* `MessagesPlaceholder`: Dynamic prompt slot for inserting chat histories or tool messages.
+* `StrOutputParser`: Unwraps an `AIMessage` to return only its raw text content.
+* `model.with_structured_output()`: Binds a Pydantic schema or TypedDict to a model, enforcing strict structured JSON output.
+* `RunnablePassthrough` & `.assign()`: LCEL primitives to forward data untouched or append computed keys to dictionaries.
+* `RunnableParallel`: LCEL primitive executing multiple branches concurrently.
+* `InMemoryChatMessageHistory`: In-memory list storing conversation turns for session management.
+* `RunnableWithMessageHistory`: Higher-order Runnable injecting and updating conversation histories mapped by `session_id`.
+* `trim_messages()`: Utility to truncate message lists within context window token limits.
+* `create_history_aware_retriever`: Reformulates follow-up queries using conversation history before querying the vector store.
+* `create_stuff_documents_chain`: Formats a list of documents and injects them into an LLM prompt.
+* `create_retrieval_chain`: Connects a retriever and document combination chain into an end-to-end RAG workflow.
 
 ---
 
@@ -2165,6 +2779,197 @@ The most effective and widely adopted stack in enterprise production RAG relies 
 1. **Hybrid Search** (Dense Vector + Sparse BM25) for high retrieval recall.
 2. **Metadata Pre-Filtering** to narrow security boundaries and date ranges.
 3. **Cross-Encoder Reranking** to ensure top-3 chunks are strictly relevant to the prompt context.
+
+<br>
+
+---
+
+<br>
+
+### 11.5 Parent Document Retrieval (Small-to-Big Hierarchical Search) <a id="parent-document-retriever" name="parent-document-retriever"></a>
+
+#### 🧠 Why We Need This: The Precision vs. Context Dilemma
+In naive RAG chunking, engineers face an inherent compromise between retrieval accuracy and generation quality:
+- **Small chunks (100–300 tokens):** Produce focused, high-precision embeddings without semantic dilution. However, when passed to the LLM, they lack vital surrounding context, antecedent noun definitions, and qualifying conditions, causing the model to misinterpret facts or hallucinate.
+- **Large chunks (1000–2000 tokens):** Provide rich narrative context for the LLM to formulate comprehensive responses. However, averaging 1000+ tokens into a single embedding vector washes out specific facts, diminishing vector similarity recall and causing critical details to be missed ("lost in the middle").
+
+> [!IMPORTANT]
+> **The Small-to-Big Ingestion Pattern:**
+> Decouple the representation used for **embedding search** from the representation used for **LLM context generation**.
+> 1. Store small, focused **child chunks** in a vector database for high-precision semantic matching.
+> 2. Store full enclosing **parent documents or parent chunks** in a key-value document store.
+> 3. When a child chunk is retrieved, lookup and pass its **parent document** to the LLM context window!
+
+---
+
+#### 🏗️ Architecture & Storage Separation
+
+```
+                               ┌────────────────────────────────────────────────────────┐
+                               │                 Raw Source Document                    │
+                               └──────────────────────────┬─────────────────────────────┘
+                                                          │
+                                     ┌────────────────────┴────────────────────┐
+                                     │ (Optional) Parent Splitter              │
+                                     ▼                                         ▼
+                        ┌────────────────────────┐                ┌────────────────────────┐
+                        │ Parent Chunk 1 (2000t) │                │ Parent Chunk 2 (2000t) │
+                        └──────────┬─────────────┘                └──────────┬─────────────┘
+                                   │                                         │
+                    Stored in:     │                                         │
+                    Document Store ┼─────────────────────────────────────────┤ (Key-Value: InMemory / Redis / SQL)
+                                   │                                         │
+                                   ▼ Child Splitter                          ▼ Child Splitter
+                        ┌──────────┬──────────┐                   ┌──────────┬──────────┐
+                        │ Child 1a │ Child 1b │                   │ Child 2a │ Child 2b │
+                        │  (400t)  │  (400t)  │                   │  (400t)  │  (400t)  │
+                        └────┬─────┴────┬─────┘                   └────┬─────┴────┬─────┘
+                             │          │                              │          │
+                             ▼          ▼                              ▼          ▼
+                       [Embeddings & Vector Index]              [Embeddings & Vector Index]
+                                     └────────────────────┬────────────────────┘
+                                                          │ Stored in: Vector Store (Chroma / FAISS)
+                                                          │ Metadata: {"doc_id": "parent_1"}
+   ───────────────────────────────────────────────────────┼────────────────────────────────────────────────────────
+                                    RETRIEVAL WORKFLOW    │
+   ───────────────────────────────────────────────────────┼────────────────────────────────────────────────────────
+                                                          ▼
+   [User Query] ──▶ Vector Search on Child Chunks ──▶ Matches Child 1b (doc_id="parent_1")
+                                                              │
+                                                              ▼ Lookup & Deduplicate
+                                                    Fetch from Document Store
+                                                              │
+                                                              ▼
+                                              Pass Parent Chunk 1 (2000t) to LLM
+```
+
+---
+
+#### ⚙️ The Two Operational Modes
+
+| Mode | Configuration | Behavior | Best Use Case |
+| :--- | :--- | :--- | :--- |
+| **Mode 1: Full Document as Parent** | `parent_splitter=None`<br>`child_splitter=RecursiveSplitter(...)` | Embeds child chunks into vector DB; stores original full documents in docstore. Retrieval returns the **entire document**. | Medium-sized documents (1–5 pages), executive summaries, press releases, customer support tickets. |
+| **Mode 2: Split Parent Chunks (Hierarchical)** | `parent_splitter=LargeSplitter(...)`<br>`child_splitter=SmallSplitter(...)` | Splits doc into large parent chunks, then further splits each parent into small child chunks. Retrieval returns the **enclosing parent chunk**. | Long books, large technical manuals, API documentation, regulatory codes, contracts exceeding 20 pages. |
+
+---
+
+#### 🧩 Deduplication Mechanics
+If a single user query returns multiple child chunks that originate from the **same parent document**, `ParentDocumentRetriever` automatically deduplicates the parent IDs. The LLM receives the parent document **exactly once**, preventing duplicate text from consuming precious context window space and diluting the response.
+
+---
+
+#### 💻 Complete Implementation Code
+
+##### Imports
+```python
+from langchain.retrievers import ParentDocumentRetriever
+from langchain.storage import InMemoryStore, LocalFileStore
+from langchain_chroma import Chroma
+from langchain_openai import OpenAIEmbeddings, ChatOpenAI
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_core.documents import Document
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import RunnablePassthrough
+```
+
+##### Step-by-Step Execution
+```python
+# 1. Prepare raw enterprise documents
+documents = [
+    Document(
+        page_content=(
+            "LangChain is a modular framework designed to simplify the creation of applications using large language models. "
+            "It provides abstractions for document loaders, text splitters, vector stores, and execution chains. "
+            "LangGraph is built on top of LangChain to support cyclical graph-based multi-agent coordination. "
+            "In LangGraph, agents maintain persistent execution state using checkpointers like InMemorySaver or PostgresSaver. "
+            "This architecture enables human-in-the-loop workflows where sensitive agent actions require human approval before execution. "
+            "Furthermore, LangGraph supports time-travel debugging by replaying state snapshots from any previous execution step."
+        ),
+        metadata={"source": "langchain_architecture_overview.pdf", "section": "Agent Engine"}
+    )
+]
+
+# 2. Configure Hierarchical Splitters (Parent-Child ratio 4:1 to 5:1)
+parent_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
+child_splitter = RecursiveCharacterTextSplitter(chunk_size=200, chunk_overlap=30)
+
+# 3. Initialize Child Vector Store (stores child chunk vectors only)
+vectorstore = Chroma(
+    collection_name="parent_child_agent_docs",
+    embedding_function=OpenAIEmbeddings(model="text-embedding-3-small")
+)
+
+# 4. Initialize Parent Docstore (stores full parent chunks/documents)
+# For persistence across restarts: docstore = LocalFileStore("./cache_parent_docs")
+docstore = InMemoryStore()
+
+# 5. Instantiate ParentDocumentRetriever
+retriever = ParentDocumentRetriever(
+    vectorstore=vectorstore,
+    docstore=docstore,
+    child_splitter=child_splitter,
+    parent_splitter=parent_splitter, # Set to None to use full documents as parents
+)
+
+# 6. Ingest Documents (automatically splits parents, creates children, indexes vectors, and links IDs)
+retriever.add_documents(documents)
+
+# 7. Query Execution: Searches child vectors, returns parent document!
+query = "What checkpointers does LangGraph use for persistence?"
+retrieved_docs = retriever.invoke(query)
+
+print(f"Retrieved {len(retrieved_docs)} parent chunk(s):")
+for idx, doc in enumerate(retrieved_docs, 1):
+    print(f"\n--- Parent Chunk {idx} (Length: {len(doc.page_content)} characters) ---")
+    print(doc.page_content)
+    print("Metadata:", doc.metadata)
+```
+
+---
+
+#### 🚀 Integrating with LCEL RAG Chain
+
+```python
+# Initialize factual LLM (low temperature for RAG grounding)
+llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.0)
+
+prompt = ChatPromptTemplate.from_template("""Use the following retrieved context to answer the question accurately.
+If the answer is not in the context, state that you do not know.
+
+Context:
+{context}
+
+Question: {question}
+Answer:""")
+
+def format_docs(docs):
+    return "\n\n".join(doc.page_content for doc in docs)
+
+# Compose end-to-end LCEL chain
+rag_chain = (
+    {"context": retriever | format_docs, "question": RunnablePassthrough()}
+    | prompt
+    | llm
+    | StrOutputParser()
+)
+
+answer = rag_chain.invoke("How does LangGraph enable human-in-the-loop workflows?")
+print("\nGenerated Answer:\n", answer)
+```
+
+---
+
+#### 📊 Advanced Retrieval Strategies Comparison
+
+| Retrieval Strategy | Index Unit | LLM Context Unit | Best For | Trade-offs |
+| :--- | :--- | :--- | :--- | :--- |
+| **Naive Recursive Chunking** | Single chunk (500t) | Same single chunk (500t) | General simple pipelines | Precision vs context dilemma |
+| **Parent Document Retrieval** | Small child chunk (200t) | Enclosing parent chunk/doc (1000–2000t) | Deep technical docs, contracts, manuals | Dual storage overhead (Vector DB + Docstore) |
+| **Sentence Window Retrieval** | Single sentence | Target sentence + $k$ surrounding sentences | Precise sentence lookup | Rigid window boundaries |
+| **Multi-Vector Retriever** | Summaries / Keywords | Full original raw document | Multi-topic complex documents | Preprocessing latency (generating summaries) |
+| **HyDE** | Generated hypothetical doc | Closest vector chunks | Vocabulary mismatch queries | Added LLM latency before retrieval |
 
 <br>
 
