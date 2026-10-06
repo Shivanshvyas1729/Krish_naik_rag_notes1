@@ -183,6 +183,19 @@ model_gemini_direct = ChatGoogleGenerativeAI(model="gemini-2.5-flash-lite")
 model_groq = init_chat_model("groq:qwen/qwen3-32b")
 model_groq_direct = ChatGroq(model="qwen/qwen3-32b")
 
+# 1b. OpenAI-Compatible Gateway Loading (Connecting Other Providers via ChatOpenAI)
+# Example: Google Gemini via its official OpenAI compatibility endpoint
+gemini_via_openai = ChatOpenAI(
+    model="gemini-2.5-flash",
+    api_key=os.getenv("GOOGLE_API_KEY"),
+    base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+    temperature=0.0
+)
+res = gemini_via_openai.invoke("Hello, Gemini via ChatOpenAI!")
+print("Response Content:", res.content)
+print("Token Usage Telemetry:", res.usage_metadata)
+
+
 # 2. Streaming Output
 print("--- Streaming Output ---")
 for chunk in model_groq.stream("Write me a 200 words paragraph on Artificial Intelligence"):

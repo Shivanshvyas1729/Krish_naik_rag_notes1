@@ -6,6 +6,409 @@
 
 ---
 
+## 🚀 Complete Industry-Level End-to-End Reference Implementations
+
+<details>
+<summary><b>📘 1. Complete Industry-Level Non-Agentic RAG Pipeline (Hybrid Search + Cross-Encoder Reranking + LCEL + Session Memory)</b></summary>
+
+### Overview: What This Architecture Solves
+This is an enterprise-grade, deterministic, non-agentic RAG pipeline. It eliminates the 4 most common failure modes of naive RAG:
+1. **Keyword Blindness:** Uses **Hybrid Search (Dense FAISS + Sparse BM25)** via `EnsembleRetriever` with Reciprocal Rank Fusion (RRF) so exact terms, product codes, and acronyms are never missed.
+2. **False Semantic Relevance:** Employs a **2-Stage Retrieval with Cross-Encoder Re-Ranking**, retrieving top-15 candidates and scoring them deeply down to the top-3 most relevant chunks.
+3. **Conversational Drift:** Integrates a **Query Reformulation Step** that resolves ambiguous follow-up pronouns into self-contained search queries.
+4. **Multi-Tenant State Leakage:** Encapsulates conversational memory into isolated, thread-safe session stores using `RunnableWithMessageHistory`.
+
+```python
+import os
+from operator import itemgetter
+from dotenv import load_dotenv
+
+from langchain_core.documents import Document
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_community.vectorstores import FAISS
+from langchain_community.retrievers import BM25Retriever
+from langchain.retrievers import EnsembleRetriever
+from langchain.retrievers import ContextualCompressionRetriever
+from langchain.retrievers.document_compressors import CrossEncoderReranker
+from langchain_community.cross_encoders import HuggingFaceCrossEncoder
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.runnables import RunnablePassthrough, RunnableLambda
+from langchain_core.output_parsers import StrOutputParser
+from langchain_community.chat_message_histories import ChatMessageHistory
+from langchain_core.chat_history import BaseChatMessageHistory
+from langchain_core.runnables.history import RunnableWithMessageHistory
+from langchain.chat_models import init_chat_model
+from langchain_openai import OpenAIEmbeddings
+
+load_dotenv()
+
+# ==============================================================================
+# 1. DOCUMENT INGESTION & SEMANTIC CHUNKING
+# ==============================================================================
+raw_corpus = [
+    Document(
+        page_content="Policy SEC-402: Multi-Factor Authentication (MFA) is strictly mandatory for all production database access. Hardware security keys (FIDO2/WebAuthn) or time-based OTP applications (e.g., Google Authenticator) must be used. SMS-based authentication is explicitly forbidden due to SIM-swapping attack vectors.",
+        metadata={"source": "security_handbook.pdf", "section": "SEC-402", "author": "Infosec Team"}
+    ),
+    Document(
+        page_content="Policy SEC-403: Production database credentials must rotate automatically every 30 days via HashiCorp Vault. Hardcoding database passwords in environment variables or configuration files results in immediate access revocation.",
+        metadata={"source": "security_handbook.pdf", "section": "SEC-403", "author": "DevOps Team"}
+    ),
+    Document(
+        page_content="Incident Response Protocol IR-12: Any unauthorized access alert from AWS GuardDuty or Datadog must trigger an automated P1 incident ticket in PagerDuty within 60 seconds, paging the on-call Site Reliability Engineer.",
+        metadata={"source": "incident_playbook.pdf", "section": "IR-12", "author": "SRE Team"}
+    )
+]
+
+# Split text with hierarchical separators while preserving exact boundaries and metadata
+text_splitter = RecursiveCharacterTextSplitter(
+    chunk_size=200,
+    chunk_overlap=30,
+    separators=["\n\n", "\n", ". ", " "]
+)
+chunked_docs = text_splitter.split_documents(raw_corpus)
+
+# ==============================================================================
+# 2. HYBRID SEARCH: DENSE VECTOR (FAISS) + SPARSE KEYWORD (BM25)
+# ==============================================================================
+embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+
+# A. Dense Semantic Vector Store
+vector_store = FAISS.from_documents(chunked_docs, embeddings)
+dense_retriever = vector_store.as_retriever(search_kwargs={"k": 10})
+
+# B. Sparse Lexical Keyword Retriever (Guarantees exact matching for codes like SEC-402, IR-12)
+sparse_retriever = BM25Retriever.from_documents(chunked_docs)
+sparse_retriever.k = 10
+
+# C. Ensemble Retriever: Reciprocal Rank Fusion (RRF) with balanced weights
+hybrid_retriever = EnsembleRetriever(
+    retrievers=[dense_retriever, sparse_retriever],
+    weights=[0.5, 0.5]
+)
+
+# ==============================================================================
+# 3. TWO-STAGE RETRIEVAL: CROSS-ENCODER RE-RANKING
+# ==============================================================================
+# Cross-encoder joint-attends to (query, document) pairs simultaneously to calculate true semantic relevance
+rerank_model = HuggingFaceCrossEncoder(model_name="BAAI/bge-reranker-base")
+compressor = CrossEncoderReranker(model=rerank_model, top_n=2)
+
+two_stage_retriever = ContextualCompressionRetriever(
+    base_compressor=compressor,
+    base_retriever=hybrid_retriever
+)
+
+# ==============================================================================
+# 4. QUERY REFORMULATION & CONVERSATIONAL GROUNDING
+# ==============================================================================
+llm = init_chat_model("gpt-4o-mini", temperature=0.0)
+
+# Helper to format retrieved chunks with provenance citations
+def format_docs_with_citations(docs):
+    formatted = []
+    for idx, doc in enumerate(docs, 1):
+        source = doc.metadata.get("source", "Unknown")
+        section = doc.metadata.get("section", "N/A")
+        formatted.append(f"[{idx}] (Source: {source} | Section: {section})\n{doc.page_content}")
+    return "\n\n".join(formatted)
+
+# A. Query Contextualizer: Resolves pronouns ('it', 'these policies') using chat history
+rephrase_prompt = ChatPromptTemplate.from_messages([
+    ("system", "Given a chat history and the latest user question which might reference context in the chat history, formulate a standalone question which can be understood without the chat history. Do NOT answer the question, just reformulate it if needed and otherwise return it as is."),
+    MessagesPlaceholder(variable_name="history"),
+    ("human", "{question}")
+])
+rephrase_chain = rephrase_prompt | llm | StrOutputParser()
+
+def contextualized_query(input_dict):
+    if input_dict.get("history"):
+        return rephrase_chain.invoke(input_dict)
+    return input_dict["question"]
+
+# B. Main RAG Generation Prompt with Strict Guardrails
+qa_prompt = ChatPromptTemplate.from_messages([
+    ("system", """You are a senior enterprise security compliance assistant. 
+Answer the question based STRICTLY and ONLY on the provided context chunks.
+Rules:
+1. Cite the source document and section code using bracket format (e.g. [SEC-402]).
+2. If the answer cannot be verified from the context, state: 'The provided documentation does not contain this information.' Do NOT extrapolate.
+
+Context:
+{context}"""),
+    MessagesPlaceholder(variable_name="history"),
+    ("human", "{question}")
+])
+
+# ==============================================================================
+# 5. LCEL COMPOSITION & CONVERSATIONAL MEMORY
+# ==============================================================================
+rag_chain = (
+    RunnablePassthrough.assign(
+        standalone_query=RunnableLambda(contextualized_query)
+    ).assign(
+        context=lambda x: format_docs_with_citations(two_stage_retriever.invoke(x["standalone_query"]))
+    )
+    | qa_prompt
+    | llm
+    | StrOutputParser()
+)
+
+# Session Memory Store (In production: swap with RedisChatMessageHistory or DynamoDBChatMessageHistory)
+session_storage = {}
+
+def get_session_history(session_id: str) -> BaseChatMessageHistory:
+    if session_id not in session_storage:
+        session_storage[session_id] = ChatMessageHistory()
+    return session_storage[session_id]
+
+conversational_rag = RunnableWithMessageHistory(
+    rag_chain,
+    get_session_history,
+    input_messages_key="question",
+    history_messages_key="history"
+)
+
+# ==============================================================================
+# 6. END-TO-END EXECUTION DEMONSTRATION
+# ==============================================================================
+config = {"configurable": {"session_id": "auditor_session_001"}}
+
+print("--- Turn 1: Primary Fact Retrieval ---")
+q1 = "Can developers use SMS verification to access the production database?"
+ans1 = conversational_rag.invoke({"question": q1}, config=config)
+print(f"Q: {q1}\nA: {ans1}\n")
+
+print("--- Turn 2: Conversational Multi-Turn Follow-Up (Resolves 'What about passwords?') ---")
+q2 = "What about their passwords? How often must they change?"
+ans2 = conversational_rag.invoke({"question": q2}, config=config)
+print(f"Q: {q2}\nA: {ans2}\n")
+```
+
+</details>
+
+<details>
+<summary><b>🤖 2. Complete Industry-Level Agentic RAG System (LangGraph + Hybrid Vector & Vectorless RAG + Self-Correction + Memory)</b></summary>
+
+### Overview: What This Agentic System Solves
+Unlike a rigid pipeline, this **Autonomous Agentic RAG System** dynamically inspects the query and chooses the right retrieval paradigm:
+1. **Unstructured Vector Search:** Hybrid retrieval (Dense + BM25) for unstructured knowledge bases and policy docs.
+2. **Vectorless RAG (Exact Deterministic Lookups):** Crucial enterprise capability. Real enterprise applications have structured databases (SQL, Redis, customer records, inventory tables). Querying numeric IDs, inventory stocks, or financial balances via vector similarity causes semantic drift and hallucinations. **Vectorless RAG** provides exact, deterministic schema lookups without vector embeddings.
+3. **Live Web Search / External APIs:** Routes queries requiring fresh external facts to live tools.
+4. **Self-Correction (Corrective RAG / CRAG):** The agent inspects retrieved documents:
+   - If documents are irrelevant or missing, it rewrites the query and falls back to alternate sources (e.g. web search).
+   - Verifies the final response against hallucinations before presenting it to the user.
+5. **Stateful Checkpointing:** Full cyclic conversation state and tool traces are preserved via `MemorySaver`.
+
+```python
+import os
+import json
+from typing import Annotated, Sequence, TypedDict, Literal
+from dotenv import load_dotenv
+
+from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, ToolMessage, SystemMessage
+from langchain_core.tools import tool
+from langchain_core.documents import Document
+from langchain_community.vectorstores import InMemoryVectorStore
+from langchain_openai import OpenAIEmbeddings, ChatOpenAI
+from langgraph.graph import StateGraph, END, START
+from langgraph.graph.message import add_messages
+from langgraph.checkpoint.memory import MemorySaver
+
+load_dotenv()
+
+# ==============================================================================
+# 1. TOOL 1: UNSTRUCTURED HYBRID RETRIEVER (Policy & Document Knowledge)
+# ==============================================================================
+embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+doc_store = InMemoryVectorStore.from_documents([
+    Document(page_content="Return Policy: Items can be returned within 30 days of purchase with original receipt. Opened software and customized electronics are non-refundable.", metadata={"topic": "returns"}),
+    Document(page_content="Shipping Policy: Standard shipping takes 3-5 business days. Overnight shipping is available for an additional fee of $25.", metadata={"topic": "shipping"})
+], embeddings)
+vector_retriever = doc_store.as_retriever(search_kwargs={"k": 2})
+
+@tool
+def search_knowledge_base(query: str) -> str:
+    """Search unstructured corporate knowledge base, return policies, and shipping rules."""
+    docs = vector_retriever.invoke(query)
+    return "\n\n".join(f"- {d.page_content}" for d in docs)
+
+# ==============================================================================
+# 2. TOOL 2: VECTORLESS RAG (Exact Deterministic SQL / KV Lookup Without Embeddings)
+# ==============================================================================
+# Vectorless RAG retrieves exact structured records, database rows, key-value stores,
+# or system states using deterministic lookups (SQL, metadata query, or entity IDs)
+# WITHOUT semantic vector embeddings. It completely eliminates semantic fuzzy matching
+# failures and hallucinations for exact numbers, dates, SKU codes, pricing tables, or user accounts.
+MOCK_SQL_DATABASE = {
+    "ORD-9912": {"status": "Shipped", "item": "Ergonomic Desk", "tracking": "TRK-88231", "delivery_date": "2026-10-12"},
+    "ORD-5541": {"status": "Processing", "item": "Mechanical Keyboard", "tracking": "Pending", "delivery_date": "2026-10-16"},
+    "SKU-7721": {"name": "4K Ultra-Sharp Monitor", "stock": 42, "warehouse": "Austin-Central", "price": 499.00}
+}
+
+@tool
+def query_vectorless_database(entity_id: str) -> str:
+    """VECTORLESS RAG TOOL: Query structured enterprise records (order status, SKU inventory, exact pricing)
+    directly by exact ID without vector embeddings. Guarantees 100% deterministic accuracy for numbers and status codes."""
+    clean_id = entity_id.strip().upper()
+    record = MOCK_SQL_DATABASE.get(clean_id)
+    if record:
+        return json.dumps(record, indent=2)
+    return f"Record not found for ID: '{entity_id}'. Available test IDs: ORD-9912, ORD-5541, SKU-7721."
+
+# ==============================================================================
+# 3. TOOL 3: LIVE EXTERNAL SEARCH & DETERMINISTIC CALCULATION
+# ==============================================================================
+@tool
+def live_web_search(query: str) -> str:
+    """Search the public web for real-time external information, weather, or current market events."""
+    return f"Simulated live web search result for '{query}': Current cloud outage status shows 99.99% uptime across all major US regions."
+
+@tool
+def execute_calculator(expression: str) -> str:
+    """Perform exact deterministic arithmetic operations safely without LLM calculation errors."""
+    try:
+        # Safe eval restricted strictly to math literals
+        allowed_chars = set("0123456789+-*/(). ")
+        if not all(c in allowed_chars for c in expression):
+            return "Error: Invalid characters in arithmetic expression."
+        return str(eval(expression))
+    except Exception as e:
+        return f"Calculation error: {str(e)}"
+
+tools = [search_knowledge_base, query_vectorless_database, live_web_search, execute_calculator]
+tools_by_name = {t.name: t for t in tools}
+
+# ==============================================================================
+# 4. LANGGRAPH AGENT STATE & SELF-REFLECTIVE ARCHITECTURE
+# ==============================================================================
+class AgentState(TypedDict):
+    messages: Annotated[Sequence[BaseMessage], add_messages]
+    retrieved_content: str
+    relevance_verdict: str  # 'relevant' | 'irrelevant'
+    retry_count: int
+
+model = ChatOpenAI(model="gpt-4o-mini", temperature=0.0).bind_tools(tools)
+
+# Node A: Reasoner (decides whether to call tools or provide final answer)
+def reasoner_node(state: AgentState):
+    response = model.invoke(state["messages"])
+    return {"messages": [response]}
+
+# Node B: Tool Executor
+def tool_node(state: AgentState):
+    last_message = state["messages"][-1]
+    tool_messages = []
+    retrieved_texts = []
+    for tool_call in last_message.tool_calls:
+        tool_func = tools_by_name[tool_call["name"]]
+        output = tool_func.invoke(tool_call["args"])
+        tool_messages.append(ToolMessage(content=str(output), tool_call_id=tool_call["id"]))
+        retrieved_texts.append(str(output))
+    return {
+        "messages": tool_messages,
+        "retrieved_content": "\n---\n".join(retrieved_texts)
+    }
+
+# Node C: Document Relevance Evaluator (Corrective RAG Guard)
+def relevance_evaluator_node(state: AgentState):
+    eval_model = ChatOpenAI(model="gpt-4o-mini", temperature=0.0)
+    user_query = state["messages"][0].content
+    retrieved = state.get("retrieved_content", "")
+    
+    prompt = f"""You are a strict grading evaluator. Determine whether the retrieved content contains information relevant to the user's question.
+Question: {user_query}
+Retrieved Content: {retrieved}
+
+Respond with EXACTLY 'relevant' if the content helps answer the question, or 'irrelevant' if it does not."""
+    res = eval_model.invoke(prompt).content.strip().lower()
+    verdict = "relevant" if "relevant" in res else "irrelevant"
+    return {"relevance_verdict": verdict}
+
+# Node D: Query Reformulator (Triggered when retrieved documents fail relevance check)
+def rewrite_query_node(state: AgentState):
+    rewrite_model = ChatOpenAI(model="gpt-4o-mini", temperature=0.3)
+    user_query = state["messages"][0].content
+    new_query = rewrite_model.invoke(
+        f"The previous search for '{user_query}' yielded irrelevant results. Provide an improved, expanded search query."
+    ).content
+    current_retries = state.get("retry_count", 0) + 1
+    return {
+        "messages": [HumanMessage(content=f"Searching with refined query: {new_query}")],
+        "retry_count": current_retries
+    }
+
+# ==============================================================================
+# 5. CONDITIONAL ROUTING LOGIC
+# ==============================================================================
+def should_continue(state: AgentState) -> Literal["tools", "evaluator", "__end__"]:
+    last_message = state["messages"][-1]
+    if hasattr(last_message, "tool_calls") and last_message.tool_calls:
+        return "tools"
+    return "__end__"
+
+def route_after_eval(state: AgentState) -> Literal["rewrite", "reasoner", "__end__"]:
+    if state.get("relevance_verdict") == "irrelevant" and state.get("retry_count", 0) < 1:
+        return "rewrite"
+    return "reasoner"
+
+# ==============================================================================
+# 6. GRAPH CONSTRUCTION & COMPILE
+# ==============================================================================
+workflow = StateGraph(AgentState)
+
+workflow.add_node("reasoner", reasoner_node)
+workflow.add_node("tools", tool_node)
+workflow.add_node("evaluator", relevance_evaluator_node)
+workflow.add_node("rewrite", rewrite_query_node)
+
+workflow.add_edge(START, "reasoner")
+workflow.add_conditional_edges("reasoner", should_continue, {
+    "tools": "tools",
+    "__end__": END
+})
+workflow.add_edge("tools", "evaluator")
+workflow.add_conditional_edges("evaluator", route_after_eval, {
+    "rewrite": "rewrite",
+    "reasoner": "reasoner"
+})
+workflow.add_edge("rewrite", "reasoner")
+
+# Compile with thread checkpoint memory
+checkpointer = MemorySaver()
+agent_app = workflow.compile(checkpointer=checkpointer)
+
+# ==============================================================================
+# 7. MULTI-SCENARIO EXECUTION DEMONSTRATION
+# ==============================================================================
+thread_cfg = {"configurable": {"thread_id": "customer_support_thread_42"}}
+
+print("--- Scenario 1: Unstructured Policy Retrieval (Calls Vector Store) ---")
+res1 = agent_app.invoke(
+    {"messages": [HumanMessage(content="What is the return window for items and are opened software items refundable?")]},
+    config=thread_cfg
+)
+print("Agent Response:\n", res1["messages"][-1].content)
+
+print("\n--- Scenario 2: VECTORLESS RAG (Deterministic SQL Order Lookup By Exact ID) ---")
+res2 = agent_app.invoke(
+    {"messages": [HumanMessage(content="Can you check the delivery date and status of my order ORD-9912?")]},
+    config=thread_cfg
+)
+print("Agent Response:\n", res2["messages"][-1].content)
+
+print("\n--- Scenario 3: Mathematical Calculation & Memory Continuity ---")
+res3 = agent_app.invoke(
+    {"messages": [HumanMessage(content="If I have 3 monitors of SKU-7721, what is the total price before tax?")]},
+    config=thread_cfg
+)
+print("Agent Response:\n", res3["messages"][-1].content)
+```
+
+</details>
+
+---
+
 ## Pipeline Roadmap
 
 How a production RAG & Agentic AI project flows end-to-end. Click any link to jump to that section.
@@ -77,7 +480,7 @@ This module serves as the **definitive production-grade guide** for modern **Lan
 | :--- | :--- | :--- |
 | **1.1** | [LangChain Architecture & Ecosystem Stack](#langchain-architecture) | The 4 architectural layers: `langchain-core`, `langchain`, `langchain-community`, Partner packages, `langgraph`, `langsmith` |
 | **1.2** | [Agent Foundations](#agent-foundations) | `create_agent()`, `@tool`, `agent.invoke()`, LangGraph cyclic execution engine |
-| **1.3** | [Models, Chat Models & Universal SDK Initializers](#models-and-chat-models) | `init_chat_model()`, `ChatOpenAI()`, `ChatGroq()`, `ChatGoogleGenerativeAI()`, `ChatAnthropic()`, Native SDKs, `invoke()`, `stream()`, `batch()`, `temperature`, `top_p`, `max_tokens` |
+| **1.3** | [Models, Chat Models & Universal SDK Initializers](#models-and-chat-models) | `init_chat_model()`, `ChatOpenAI()` (OpenAI-compatible endpoints: Gemini, Groq, DeepSeek, Ollama), `AIMessage` anatomy, `usage_metadata`, `response_metadata`, `invoke()`, `stream()`, `batch()`, `temperature`, `top_p`, `max_tokens` |
 | **1.4** | [Prompt Templates & Prompt Engineering](#prompts-and-engineering) | `PromptTemplate`, `ChatPromptTemplate.from_messages()`, `MessagesPlaceholder`, `.partial()`, `FewShotChatMessagePromptTemplate`, CoT patterns |
 | **1.5** | [Tool Anatomy, Schemas & Function Calling](#tools-and-function-calling) | `@tool`, `model.bind_tools()`, `tool_choice`, `ai_msg.tool_calls`, `ToolMessage`, parallel tool calling |
 | **1.6** | [Canonical Message State & Token Tracking](#canonical-messages) | `SystemMessage`, `HumanMessage`, `AIMessage`, `ToolMessage`, `usage_metadata` |
@@ -131,13 +534,45 @@ Modern LangChain is decoupled into a modular, multi-tier architectural stack to 
 **Definition:** An AI Agent uses an LLM as a central reasoning engine to decide which tools to call, what arguments to extract, and how to sequence actions to satisfy a request.
 
 <details>
-<summary>Version Note — LangChain v0.3: AgentExecutor is deprecated</summary>
-<ul>
-<li><strong>Deprecated:</strong> <code>langchain.agents.AgentExecutor</code> — the old loop-based executor relying on manual Python state passing.</li>
-<li><strong>Current standard:</strong> <code>create_agent</code> from <code>langchain.agents</code> — wraps LangGraph under the hood with stateful graph execution, native cycle handling, and automatic tool error recovery.</li>
-<li>For custom multi-agent flows, use LangGraph directly: <code>langgraph.prebuilt.create_react_agent</code>.</li>
-<li>Reference: <a href="https://python.langchain.com/docs/versions/v0_3/">LangChain v0.3 docs</a></li>
-</ul>
+<summary><b>⚠️ Obsolete / Deprecated Architecture: AgentExecutor (Legacy While-Loop Engine)</b></summary>
+
+#### What It Does
+`AgentExecutor` was LangChain's original (v0.1–v0.2) agent execution engine. It ran a hardcoded Python `while` loop that invoked an LLM, parsed text actions with regex, executed the corresponding Python function, appended the result to a scratchpad string, and repeated until reaching an end condition or iteration limit (`max_iterations`).
+
+#### When to Use
+- Only when maintaining legacy codebases pinned to `langchain < 0.2.0` that have not yet migrated to modern graph runtimes.
+
+#### When NOT to Use (Production Reality & Modern Alternatives)
+- **Do not use in new production systems:** `AgentExecutor` was deprecated in LangChain v0.3. It lacks streaming intermediate node outputs, cannot handle human-in-the-loop approvals or time-travel debugging, struggles with cyclical multi-agent workflows, and fails silently on malformed tool calls.
+- **Modern Alternative:** In LangChain v0.3+, always use `create_agent` from `langchain.agents` or `create_react_agent` from `langgraph.prebuilt`. These run on top of LangGraph's durable, checkpointed state machine engine with native tool error recovery.
+
+#### Code & Example (Legacy Pattern for Migration Reference)
+```python
+# ⚠️ DEPRECATED SYNTAX (For migration reference only)
+from langchain.agents import AgentExecutor, create_tool_calling_agent
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.tools import tool
+from langchain.chat_models import init_chat_model
+
+@tool
+def get_weather(city: str) -> str:
+    """Get current weather for a specified city."""
+    return f"The weather in {city} is sunny."
+
+llm = init_chat_model("gpt-4o-mini")
+prompt = ChatPromptTemplate.from_messages([
+    ("system", "You are a helpful assistant."),
+    ("human", "{input}"),
+    ("placeholder", "{agent_scratchpad}"),
+])
+agent = create_tool_calling_agent(llm, [get_weather], prompt)
+
+# Legacy executor with manual loop parameters
+executor = AgentExecutor(agent=agent, tools=[get_weather], verbose=True, max_iterations=5)
+response = executor.invoke({"input": "What is the weather in Boston?"})
+print(response["output"])
+```
+
 </details>
 
 **Legacy vs. Current Architecture:**
@@ -181,6 +616,34 @@ print(response["messages"][-1].content)
 | **Capabilities** | Plain text generation | System personas, multimodal inputs, function/tool calling, structured outputs |
 | **LangChain Base Class** | `langchain_core.language_models.llms.LLM` | `langchain_core.language_models.chat_models.BaseChatModel` |
 
+<details>
+<summary><b>⚠️ Obsolete / Deprecated Architecture: Legacy Text Completion LLMs (LLM Base Class)</b></summary>
+
+#### What It Does
+Legacy Text LLMs (e.g. `from langchain_openai import OpenAI`) connect to raw text completion endpoints (`/v1/completions`). They accept a single unstructured string prompt and return a raw continuation string (`str -> str`) with no structural awareness of speaker turns (`system`, `user`, `assistant`).
+
+#### When to Use
+- Maintaining vintage pre-2023 codebases or connecting to base foundational models that were never fine-tuned for conversation or chat instruct formats.
+
+#### When NOT to Use (Production Reality)
+- **Do not use in modern RAG or Agentic systems.** 100% of modern LLMs (GPT-4o, Claude 3.5 Sonnet, Gemini 1.5/2.5, DeepSeek-V3) are Chat Models (`BaseChatModel`). Chat models support system steering guardrails, multi-turn conversational context, JSON Schema constrained decoding, and native parallel tool calling. Raw text LLMs cannot process structured messages or execute function calls.
+
+#### Code Example
+```python
+# ❌ DEPRECATED APPROACH (Legacy raw text completion):
+# from langchain_openai import OpenAI
+# legacy_model = OpenAI(model="gpt-3.5-turbo-instruct")
+# text_response = legacy_model.invoke("Write a poem about AI.")
+
+# ✅ MODERN STANDARD (Chat model with BaseMessage input & AIMessage output):
+from langchain_openai import ChatOpenAI
+chat_model = ChatOpenAI(model="gpt-4o-mini", temperature=0.0)
+ai_msg = chat_model.invoke("Explain vector embeddings.")
+print("Response Text:", ai_msg.content)
+```
+
+</details>
+
 ---
 
 ### Universal Model Initialization (`init_chat_model`)
@@ -221,6 +684,88 @@ chat_gemini = ChatGoogleGenerativeAI(model="gemini-1.5-flash")
 chat_claude = ChatAnthropic(model="claude-3-5-sonnet-20241022")
 ```
 
+### Connecting Multiple Providers via `ChatOpenAI` (OpenAI-Compatible Endpoints)
+
+Because `langchain_openai.ChatOpenAI` strictly complies with the OpenAI REST API specification (`/v1/chat/completions`), it functions as a **universal client** to connect with any model provider or local server that exposes an OpenAI-compatible endpoint.
+
+By passing `base_url`, `api_key`, and `model`, you can communicate with Google Gemini, Groq, DeepSeek, or local LLMs (Ollama / vLLM) directly through `ChatOpenAI` without needing provider-specific SDKs:
+
+#### 1. Google Gemini via OpenAI-Compatible Endpoint
+Google provides an official OpenAI-compatible endpoint for Gemini models:
+
+```python
+from langchain_openai import ChatOpenAI
+
+gemini_chat = ChatOpenAI(
+    model="gemini-2.5-flash",  # Or another supported Gemini model (e.g., gemini-1.5-flash, gemini-2.5-pro)
+    api_key="YOUR_GEMINI_API_KEY",  # Or os.getenv("GEMINI_API_KEY")
+    base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+    temperature=0.0
+)
+
+response = gemini_chat.invoke("Hello, Gemini!")
+print(response.content)
+```
+
+#### 2. Groq via OpenAI-Compatible Endpoint
+Groq exposes an ultra-fast OpenAI-compatible gateway:
+
+```python
+groq_chat = ChatOpenAI(
+    model="llama-3.3-70b-versatile",
+    api_key="YOUR_GROQ_API_KEY",    # Or os.getenv("GROQ_API_KEY")
+    base_url="https://api.groq.com/openai/v1",
+    temperature=0.2
+)
+
+response = groq_chat.invoke("Explain low latency in LLM inference.")
+print(response.content)
+```
+
+#### 3. DeepSeek via OpenAI-Compatible Endpoint
+```python
+deepseek_chat = ChatOpenAI(
+    model="deepseek-chat",          # Or "deepseek-reasoner" for DeepSeek-R1
+    api_key="YOUR_DEEPSEEK_API_KEY",# Or os.getenv("DEEPSEEK_API_KEY")
+    base_url="https://api.deepseek.com/v1"
+)
+
+response = deepseek_chat.invoke("Summarize the benefits of mixture-of-experts.")
+print(response.content)
+```
+
+#### 4. Local Models (Ollama, vLLM, LM Studio)
+Run private local models offline while retaining the identical `ChatOpenAI` interface:
+
+```python
+# Ollama local instance (default port 11434)
+ollama_chat = ChatOpenAI(
+    model="llama3.2",
+    api_key="ollama",               # Dummy string required by OpenAI client
+    base_url="http://localhost:11434/v1"
+)
+
+# vLLM or LM Studio local inference server
+vllm_chat = ChatOpenAI(
+    model="mistralai/Mistral-7B-Instruct-v0.3",
+    api_key="EMPTY",
+    base_url="http://localhost:8000/v1"
+)
+```
+
+#### Quick Reference: OpenAI-Compatible Provider Endpoints
+
+| Provider | `base_url` | API Key Env Var / Value | Example Model Identifier |
+| :--- | :--- | :--- | :--- |
+| **OpenAI** | `https://api.openai.com/v1` | `OPENAI_API_KEY` | `gpt-4o-mini`, `gpt-4.1` |
+| **Google Gemini** | `https://generativelanguage.googleapis.com/v1beta/openai/` | `GEMINI_API_KEY` | `gemini-2.5-flash`, `gemini-1.5-flash` |
+| **Groq** | `https://api.groq.com/openai/v1` | `GROQ_API_KEY` | `llama-3.3-70b-versatile`, `qwen/qwen3-32b` |
+| **DeepSeek** | `https://api.deepseek.com/v1` | `DEEPSEEK_API_KEY` | `deepseek-chat`, `deepseek-reasoner` |
+| **Ollama (Local)** | `http://localhost:11434/v1` | `"ollama"` (dummy) | `llama3.2`, `mistral`, `deepseek-r1` |
+| **vLLM / LM Studio** | `http://localhost:8000/v1` / `http://localhost:1234/v1` | `"EMPTY"` | Hugging Face model repo id |
+
+---
+
 ### Native Provider SDKs vs. LangChain Wrappers
 
 | Feature | Direct Native SDK (`openai`, `groq`) | LangChain Chat Models (`init_chat_model`, `ChatOpenAI`) |
@@ -230,6 +775,114 @@ chat_claude = ChatAnthropic(model="claude-3-5-sonnet-20241022")
 | **Universal Switching** | ❌ Code rewrite per provider | ✅ 1-line provider string switch |
 | **Tool Calling & Parsing** | ❌ Manual JSON Schema handling | ✅ `@tool`, `.bind_tools()`, `.with_structured_output()` |
 | **Fallback & Tracing** | ❌ Manual retry and telemetry | ✅ Integrated LangSmith tracing and fallback chains |
+
+---
+
+### Invocation Input Formats (Strings, Message Objects & Dictionaries)
+
+LangChain chat models accept three primary input formats through `.invoke()`:
+
+```python
+from langchain_core.messages import SystemMessage, HumanMessage
+
+# 1. Plain String (Automatically converted into a HumanMessage internally)
+response = model.invoke("What is Retrieval-Augmented Generation?")
+
+# 2. Canonical LangChain BaseMessage Objects (Recommended for explicit multi-turn dialog)
+messages = [
+    SystemMessage(content="You are an expert enterprise AI architect."),
+    HumanMessage(content="What are the trade-offs of chunking size in vector search?")
+]
+response = model.invoke(messages)
+
+# 3. OpenAI-Style Role/Content Dictionaries (Convenient shorthand)
+dict_messages = [
+    {"role": "system", "content": "You are a concise technical writer."},
+    {"role": "user", "content": "Explain cosine similarity in two sentences."}
+]
+response = model.invoke(dict_messages)
+```
+
+---
+
+### Response Format Anatomy (`AIMessage`) & Field Access
+
+When any LangChain chat model is invoked, it returns an **`AIMessage`** object (`langchain_core.messages.ai.AIMessage`). It encapsulates the model's generated text, standardized token counts, and vendor-specific telemetry.
+
+#### Anatomy of an `AIMessage` Object
+
+```python
+AIMessage(
+    content="Retrieval-Augmented Generation (RAG) optimizes LLM responses by querying external vector databases.",
+    response_metadata={
+        'token_usage': {
+            'prompt_tokens': 18,
+            'completion_tokens': 16,
+            'total_tokens': 34
+        },
+        'model_name': 'gpt-4o-mini',
+        'finish_reason': 'stop',
+        'system_fingerprint': 'fp_433e8c8649',
+        'model_provider': 'openai'
+    },
+    usage_metadata={
+        'input_tokens': 18,
+        'output_tokens': 16,
+        'total_tokens': 34,
+        'input_token_details': {'audio': 0, 'cache_read': 0},
+        'output_token_details': {'audio': 0, 'reasoning': 0}
+    },
+    id='lc_run--ea489fd6-4775-4c26-9063-881b1c1b933b-0',
+    additional_kwargs={'refusal': None}
+)
+```
+
+#### Core Response Attributes Reference
+
+| Attribute | Type | Description | Access Syntax |
+| :--- | :--- | :--- | :--- |
+| **`response.content`** | `str \| list` | The generated text response string (or list of content parts for multimodal/tool responses). | `response.content` |
+| **`response.usage_metadata`** | `dict` | Standardized token usage dictionary across **all** providers in modern LangChain (`input_tokens`, `output_tokens`, `total_tokens`). | `response.usage_metadata["total_tokens"]` |
+| **`response.response_metadata`** | `dict` | Provider-specific raw metadata including `finish_reason`, `model_name`, `system_fingerprint`, and HTTP response headers. | `response.response_metadata.get("finish_reason")` |
+| **`response.id`** | `str` | Unique LangChain Run/Message ID used in telemetry, LangSmith tracing, and thread state tracking. | `response.id` |
+| **`response.additional_kwargs`** | `dict` | Raw provider payload arguments (e.g., raw function calls, refusal flags). | `response.additional_kwargs.get("refusal")` |
+| **`response.tool_calls`** | `list[dict]` | Standardized list of parsed tool/function call payloads generated when tool calling is enabled. | `response.tool_calls` |
+
+#### Accessing Response Fields in Python
+
+```python
+# Invoke the chat model
+response = model.invoke("Why do vector embeddings enable semantic search?")
+
+# 1. Access the generated text content
+print("--- Response Content ---")
+print(response.content)
+
+# 2. Access standardized token telemetry (Vendor-agnostic across OpenAI, Gemini, Groq, etc.)
+if response.usage_metadata:
+    print("\n--- Token Usage Telemetry ---")
+    print(f"Prompt (Input) Tokens:      {response.usage_metadata['input_tokens']}")
+    print(f"Completion (Output) Tokens: {response.usage_metadata['output_tokens']}")
+    print(f"Total Tokens:               {response.usage_metadata['total_tokens']}")
+    
+    # Check for cached prompt tokens or reasoning tokens (e.g., DeepSeek-R1, o1)
+    cached = response.usage_metadata.get("input_token_details", {}).get("cache_read", 0)
+    reasoning = response.usage_metadata.get("output_token_details", {}).get("reasoning", 0)
+    if cached:
+        print(f"Prompt Cache Read Tokens:   {cached}")
+    if reasoning:
+        print(f"Reasoning Tokens:           {reasoning}")
+
+# 3. Access provider-specific response metadata & finish reason
+print("\n--- Response Metadata ---")
+finish_reason = response.response_metadata.get("finish_reason")
+model_name = response.response_metadata.get("model_name")
+print(f"Model: {model_name}")
+print(f"Finish Reason: {finish_reason}")  # e.g., 'stop', 'length', 'tool_calls'
+
+# 4. Access unique LangChain Run / Message ID (useful for debugging & LangSmith trace correlation)
+print(f"Message ID: {response.id}")
+```
 
 ---
 
@@ -330,22 +983,45 @@ where $P(w_{(1)}) \ge P(w_{(2)}) \ge \dots \ge P(w_{(|V|)})$. All tokens with in
 
 Prompts translate raw variables and context documents into structured instructions for the LLM.
 
-### String Prompts (`PromptTemplate`) vs. Chat Prompts (`ChatPromptTemplate`)
+### Production Chat Prompts (`ChatPromptTemplate`) — The Modern Standard
+
+Modern LLMs are structured around chat completion roles (`system`, `human`, `ai`). `ChatPromptTemplate` is the mandatory production standard for multi-turn conversations, RAG systems, and autonomous agents:
 
 ```python
-from langchain_core.prompts import PromptTemplate, ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
-# 1. Plain String PromptTemplate (Legacy / Simple string interpolation)
-str_prompt = PromptTemplate.from_template("Translate the following text to French: {text}")
-formatted_str = str_prompt.format(text="Hello, how are you?")
-
-# 2. Structured ChatPromptTemplate (Standard for Multi-Turn Chat & Agents)
+# Production Multi-Turn RAG Chat Prompt
 chat_prompt = ChatPromptTemplate.from_messages([
-    ("system", "You are an expert financial analyst. Answer with concise, verified facts."),
-    MessagesPlaceholder(variable_name="chat_history"), # Injects conversational memory list
+    ("system", "You are an expert enterprise compliance analyst. Answer strictly using retrieved context."),
+    MessagesPlaceholder(variable_name="chat_history"), # Injects conversational memory list dynamically
     ("human", "{question}")
 ])
 ```
+
+<details>
+<summary><b>⚠️ Rarely Used / Legacy: Plain String PromptTemplate (For Non-Chat Completion Models)</b></summary>
+
+#### What It Does
+`PromptTemplate` performs simple string variable interpolation (`str -> str`). It generates a single raw text string without role headers (`system`, `user`, `assistant`).
+
+#### When to Use
+- Interfacing with older legacy completion endpoints (`/v1/completions`) or older base LLMs (`text-davinci-003`, raw non-instruct models).
+- Generating static raw text strings or SQL templates outside of chat orchestration.
+
+#### When NOT to Use (Production Reality)
+- **Do not use for modern Chat Models** (GPT-4o, Claude 3.5, Gemini 1.5/2.5, Llama 3). Chat models expect structured role messages. Feeding raw strings loses system steering, breaks tool-calling conventions, and degrades security boundaries. Always use `ChatPromptTemplate`.
+
+#### Code Example
+```python
+from langchain_core.prompts import PromptTemplate
+
+# Plain string prompt template
+str_prompt = PromptTemplate.from_template("Translate the following phrase into French: {phrase}")
+formatted_str = str_prompt.format(phrase="Hello, where is the train station?")
+print(formatted_str)
+```
+
+</details>
 
 ### Dynamic Variables & Partial Prompting (`.partial()`)
 
@@ -363,12 +1039,21 @@ time_aware_prompt = ChatPromptTemplate.from_messages([
 ]).partial(current_time=lambda: datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 ```
 
-### Few-Shot Prompt Templates
+<details>
+<summary><b>⚠️ Specialized / Token-Heavy: Few-Shot Chat Prompting (FewShotChatMessagePromptTemplate)</b></summary>
 
-In-context examples dramatically increase LLM accuracy on reasoning and formatting tasks:
+#### What It Does
+Injects multiple explicit user-assistant example pairs directly into the prompt context to condition the model's output formatting and reasoning style through in-context learning.
 
+#### When to Use
+- Highly nuanced reasoning, domain-specific acronym expansion, or strictly enforced bespoke output syntaxes where zero-shot instructions fail.
+
+#### When NOT to Use (Production Reality)
+- **Rarely needed in Production RAG:** In RAG pipelines, external documents retrieved dynamically from vector/hybrid search already ground the LLM with factual knowledge. Hardcoding few-shot examples burns substantial token budget on every single query, inflates API latency, and increases costs without improving grounding. Prefer zero-shot with clear schemas (`with_structured_output`) or fine-tuning.
+
+#### Code Example
 ```python
-from langchain_core.prompts import FewShotChatMessagePromptTemplate
+from langchain_core.prompts import FewShotChatMessagePromptTemplate, ChatPromptTemplate
 
 examples = [
     {"input": "2+2", "output": "4"},
@@ -391,6 +1076,8 @@ final_prompt = ChatPromptTemplate.from_messages([
     ("human", "{input}")
 ])
 ```
+
+</details>
 
 ### Prompt Engineering Best Practices in LangChain
 1. **Explicit Delimiters:** Use markdown fences (`"""`, `### Context:`, `### Question:`) to prevent prompt injection attacks.
@@ -513,6 +1200,32 @@ print("Token Usage Metadata:", response.usage_metadata)
 # {'input_tokens': 45, 'output_tokens': 18, 'total_tokens': 63}
 ```
 
+<details>
+<summary><b>⚠️ Deprecated / Legacy Message Type: FunctionMessage vs. Modern ToolMessage</b></summary>
+
+#### What It Does
+`FunctionMessage` was LangChain's original message wrapper for OpenAI's legacy 2023 `functions` API, carrying the raw string result of a single function invocation.
+
+#### When to Use
+- Only when maintaining legacy code calling deprecated `.bind(functions=...)` endpoints.
+
+#### When NOT to Use (Production Reality)
+- **Do not use in modern applications:** Modern models support **parallel tool execution** (e.g. model emits 3 distinct tool calls in a single turn). `FunctionMessage` lacked call identification and caused race conditions. Modern systems use `ToolMessage(content=..., tool_call_id=...)`, which maps each execution result precisely to its corresponding invocation ID in `AIMessage.tool_calls`.
+
+#### Code Example
+```python
+from langchain_core.messages import ToolMessage
+
+# Modern Production Standard (Pairs with tool_call_id)
+tool_msg = ToolMessage(
+    content="Current stock price: $225.50",
+    tool_call_id="call_999", # Correlates directly with ai_msg.tool_calls[0]['id']
+    name="get_stock_price"
+)
+```
+
+</details>
+
 ---
 
 ## 1.7 Output Parsers & Enforced Schema Structured Outputs (`5-structuredoutput.ipynb`) <a id="output-parsers-and-structured-output" name="output-parsers-and-structured-output"></a>
@@ -528,16 +1241,30 @@ print("Token Usage Metadata:", response.usage_metadata)
 
 ---
 
-### Classic Output Parsers Walkthrough
+### Primary Production Parsers: `StrOutputParser` & `model.with_structured_output`
 
+In modern production systems, 99% of use cases fall into two categories:
+1. **Unstructured Text Output:** Use `StrOutputParser()` to extract `.content` cleanly.
+2. **Strict Schema / JSON Output:** Use `model.with_structured_output(Schema)` to enforce native schema guarantees via function calling.
+
+<details>
+<summary><b>⚠️ Legacy / Fallback: Classic String-Based Parsers (JsonOutputParser, PydanticOutputParser, CommaSeparatedListOutputParser)</b></summary>
+
+#### What They Do
+Classic parsers (`JsonOutputParser`, `PydanticOutputParser`, `CommaSeparatedListOutputParser`) inject explicit text instructions into the prompt (e.g. `"Respond with a JSON object containing keys: [title, year]..."`) and attempt to parse the model's raw string response using Python regex and `json.loads()`.
+
+#### When to Use
+- **Legacy / Weak Models:** When using small or older open-source models that do not support native OpenAI-compatible tool/function calling or JSON schema constrained decoding.
+
+#### When NOT to Use (Production Reality)
+- **Do not use in modern production applications.** Text parsers frequently break when the LLM includes markdown wrappers (````json ... ````), conversational apologies, trailing commas, or omitted closing brackets. For structured output, always use `model.with_structured_output(PydanticSchema)` which guarantees deterministic schema conformance at the API decoding level.
+
+#### Code Example
 ```python
 from langchain_core.output_parsers import StrOutputParser, JsonOutputParser, CommaSeparatedListOutputParser
 from langchain_core.prompts import PromptTemplate
 
-# 1. String Output Parser (Pulls clean text from AIMessage)
-chain = prompt | model | StrOutputParser()
-
-# 2. Comma Separated List Output Parser
+# 1. Comma Separated List Output Parser (Prompt-injected)
 list_parser = CommaSeparatedListOutputParser()
 format_instructions = list_parser.get_format_instructions()
 prompt = PromptTemplate(
@@ -547,7 +1274,18 @@ prompt = PromptTemplate(
 )
 list_chain = prompt | model | list_parser
 # Returns: ['Python', 'JavaScript', 'TypeScript', 'Java', 'Rust']
+
+# 2. JSON Output Parser (Prompt-injected)
+json_parser = JsonOutputParser()
+json_prompt = PromptTemplate(
+    template="Return a JSON object with keys 'status' and 'code' for a successful HTTP request.\n{format_instructions}",
+    input_variables=[],
+    partial_variables={"format_instructions": json_parser.get_format_instructions()}
+)
+json_chain = json_prompt | model | json_parser
 ```
+
+</details>
 
 ---
 
@@ -584,32 +1322,127 @@ else:
 
 ### Core Runnables Reference
 
-| Runnable | Purpose | Example |
-| :--- | :--- | :--- |
-| `RunnablePassthrough` | Passes input through unchanged | `{"question": RunnablePassthrough()}` |
-| `RunnablePassthrough.assign()` | Computes and adds new keys to a dictionary without dropping existing keys | `chain.assign(context=retriever)` |
-| `RunnableParallel` (dict) | Executes multiple branches in parallel threads | `RunnableParallel(context=retriever, query=RunnablePassthrough())` |
-| `RunnableLambda` | Wraps any arbitrary Python function into a Runnable | `RunnableLambda(lambda x: x.upper())` |
-| `RunnableBranch` | Conditional routing (if-else logic) based on input | `RunnableBranch((condition, chain_a), default_chain)` |
-| `RunnableConfig` | Passes runtime metadata, tags, callbacks, and concurrency | `chain.invoke(..., config={"max_concurrency": 5})` |
+| Runnable Primitive | Production Status | Core Purpose | Syntax Pattern |
+| :--- | :--- | :--- | :--- |
+| **`RunnablePassthrough`** | **Daily Standard** | Passes the input data stream through without modifications. | `{"question": RunnablePassthrough()}` |
+| **`RunnablePassthrough.assign()`** | **Daily Standard** | Appends or updates specific keys in an input dict without discarding existing keys. | `chain.assign(context=retriever)` |
+| **`RunnableParallel` (dict syntax)** | **Daily Standard** | Executes multiple independent runnable branches simultaneously in worker threads. | `RunnableParallel(context=retriever, question=RunnablePassthrough())` |
+| **`RunnableLambda`** | **Daily Standard** | Wraps any arbitrary Python function/callable into an LCEL-compatible Runnable. | `RunnableLambda(lambda x: x.strip())` |
+| **`RunnableConfig`** | **Daily Standard** | Injects runtime execution parameters: `tags`, `metadata`, `callbacks`, and `max_concurrency`. | `chain.invoke(..., config={"max_concurrency": 5})` |
+| **`RunnableBranch`** | ⚠️ **Rarely Used / Legacy** | Hardcoded conditional if-elif-else branching router. | `RunnableBranch((condition, chain_a), default_chain)` |
+
+---
+
+### Primary Production Runnables Deep-Dive
+
+#### 1. `RunnablePassthrough` & `RunnablePassthrough.assign()`
+- **What It Does:** `RunnablePassthrough()` forwards whatever input it receives untouched. `.assign()` calculates one or more new keys (e.g. retrieving documents) and merges them into the existing dictionary.
+- **When to Use:** Standard foundation for almost every custom LCEL RAG pipeline to keep both the original `"question"` and the retrieved `"context"` available for the prompt.
 
 ```python
-from langchain_core.runnables import RunnablePassthrough, RunnableParallel, RunnableLambda
-from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnablePassthrough
+
+# Example: Enriching input dict with context without losing user question
+rag_prep = RunnablePassthrough.assign(
+    context=lambda x: f"Retrieved knowledge for {x['question']}"
+)
+output = rag_prep.invoke({"question": "What is LCEL?"})
+# Output: {'question': 'What is LCEL?', 'context': 'Retrieved knowledge for What is LCEL?'}
+```
+
+#### 2. `RunnableParallel` (Dict Shorthand)
+- **What It Does:** Executes multiple runnable branches concurrently across threads and packs their outputs into a single dictionary.
+- **When to Use:** When you need to prepare independent inputs simultaneously (e.g. querying a retriever while formatting the original question).
+
+```python
+from langchain_core.runnables import RunnableParallel, RunnablePassthrough
+
+# Executed in parallel worker threads
+parallel_step = RunnableParallel(
+    upper_query=lambda x: x["query"].upper(),
+    query_len=lambda x: len(x["query"]),
+    original=RunnablePassthrough()
+)
+res = parallel_step.invoke({"query": "langchain"})
+# res: {'upper_query': 'LANGCHAIN', 'query_len': 9, 'original': {'query': 'langchain'}}
+```
+
+#### 3. `RunnableLambda`
+- **What It Does:** Converts any custom Python function, data transformer, or filtering logic into a first-class runnable with streaming, batching, and async support.
+- **When to Use:** For custom data formatting (`format_docs`), text normalization, regex extraction, or calling proprietary internal APIs inside a pipeline.
+
+```python
+from langchain_core.runnables import RunnableLambda
+
+def format_docs(docs):
+    return "\n".join(f"- {d}" for d in docs)
+
+cleaner = RunnableLambda(format_docs)
+```
+
+#### 4. `RunnableConfig`
+- **What It Does:** Standard configuration dictionary passed to any `.invoke()`, `.batch()`, or `.stream()` call to control runtime behavior.
+- **When to Use:** Limiting concurrent API calls (`max_concurrency`), tagging executions in LangSmith (`tags`, `metadata`), or passing custom callbacks.
+
+```python
+config = {
+    "tags": ["production", "v1.2"],
+    "metadata": {"user_id": "usr_789", "tenant": "enterprise_a"},
+    "max_concurrency": 4
+}
+# chain.batch(questions, config=config)
+```
+
+---
+
+<details>
+<summary><b>⚠️ Rarely Used / Legacy: Conditional Routing with RunnableBranch (Superseded by Python Functions & LangGraph)</b></summary>
+
+#### What It Does
+`RunnableBranch` takes a sequence of `(condition_callable, runnable_branch)` tuples followed by a default fallback runnable. It evaluates conditions sequentially from top to bottom and routes the input to the first branch that evaluates to `True`.
+
+#### When to Use
+- Basic 2-way linear branching in simple legacy LCEL scripts where you don't want to define a Python function.
+
+#### When NOT to Use (Production Reality)
+- **Avoid in modern production systems:** 
+  1. `RunnableBranch` syntax is rigid, verbose, and difficult to test in unit tests.
+  2. It cannot perform multi-step cycles, loops, or state updates.
+  3. **Modern Alternative 1 (Stateless):** Use a plain Python function inside `RunnableLambda`:
+     ```python
+     def route_query(input_dict):
+         if "code" in input_dict["question"]:
+             return code_chain.invoke(input_dict)
+         return general_chain.invoke(input_dict)
+     
+     chain = RunnableLambda(route_query)
+     ```
+  4. **Modern Alternative 2 (Stateful / Agentic):** Use LangGraph conditional edges (`builder.add_conditional_edges()`), which offers full inspection, time-travel debugging, and visual diagramming.
+
+#### Code Example
+```python
+from langchain_core.runnables import RunnableBranch, RunnableLambda
+from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 
-# 1. Pipeline Definition with Branching and Dict Composition
-prompt = ChatPromptTemplate.from_template("Summarize the following topic in 2 bullet points: {topic}")
+# 1. Define distinct task chains
+math_chain = PromptTemplate.from_template("Solve math: {query}") | model | StrOutputParser()
+code_chain = PromptTemplate.from_template("Write Python code for: {query}") | model | StrOutputParser()
+general_chain = PromptTemplate.from_template("Answer question: {query}") | model | StrOutputParser()
 
-# Dict syntax automatically wraps into RunnableParallel
-parallel_prep = {
-    "topic": RunnablePassthrough(),
-    "extra_notes": RunnableLambda(lambda x: f"User requested topic: {x}")
-}
+# 2. RunnableBranch Router
+router = RunnableBranch(
+    (lambda x: "calculate" in x["query"].lower(), math_chain),
+    (lambda x: "code" in x["query"].lower(), code_chain),
+    general_chain # Default fallback
+)
 
-chain = parallel_prep | prompt | model | StrOutputParser()
-print(chain.invoke("Retrieval-Augmented Generation"))
+print(router.invoke({"query": "Write code for binary search"}))
 ```
+
+</details>
+
+---
 
 ---
 
@@ -617,7 +1450,35 @@ print(chain.invoke("Retrieval-Augmented Generation"))
 
 ### The Evolution of Memory in LangChain
 
-- **Legacy Deprecation:** `ConversationBufferMemory`, `ConversationSummaryMemory`, and `ConversationBufferWindowMemory` are deprecated because they tightly coupled state inside monolithic chains, breaking horizontal scaling and multi-tenant statelessness.
+<details>
+<summary><b>⚠️ Deprecated / Monolithic Memory: ConversationBufferMemory, BufferWindowMemory & SummaryMemory</b></summary>
+
+#### What It Does
+In pre-v0.2 LangChain, conversational state was managed by monolithic memory classes (`ConversationBufferMemory`, `ConversationBufferWindowMemory`, `ConversationSummaryMemory`) that were passed directly into stateful chain abstractions (`ConversationChain`, `LLMChain`). They accumulated chat history in an internal Python list directly inside the chain object instance.
+
+#### When to Use
+- **Never in new projects:** Completely superseded in modern LangChain (v0.2+ / v1.x).
+
+#### When NOT to Use (Production Reality)
+- **Breaks Cloud Horizontal Scaling:** Storing chat history inside the Python chain instance violates the 12-Factor stateless microservice model. In modern cloud setups (multiple FastAPI workers, Kubernetes pods, serverless AWS Lambda), successive HTTP requests from the same user land on different workers and lose their conversation history.
+- **Process Memory Leaks & Crash Vulnerability:** If the container restarts or crashes, all active user conversations held in heap RAM are permanently destroyed.
+- **Multi-Tenant State Contamination:** Accidentally sharing a chain instance across concurrent HTTP requests causes one user's chat history to leak into another user's session.
+- **Modern Solution:** Decouple application chains from memory. Keep LCEL chains completely stateless and dynamically inject conversation history from a persistent backing store (Redis, Postgres, DynamoDB) via `RunnableWithMessageHistory(get_session_history)` or LangGraph state checkpointers (`PostgresSaver`).
+
+#### Code & Example
+```python
+# ❌ DEPRECATED (Do NOT use in production):
+# from langchain.memory import ConversationBufferMemory
+# memory = ConversationBufferMemory()
+# chain = LLMChain(llm=llm, prompt=prompt, memory=memory)
+
+# ✅ MODERN PRODUCTION STANDARD (Stateless LCEL + External Session Store):
+from langchain_core.runnables.history import RunnableWithMessageHistory
+# conversational_chain = RunnableWithMessageHistory(chain, get_session_history)
+```
+
+</details>
+
 - **Modern Standards:**
   1. **Stateless Chains + External Session History (`RunnableWithMessageHistory`)**
   2. **Compiled Stateful Graph Checkpointing (`LangGraph`)**
@@ -672,10 +1533,19 @@ res3 = conversational_chain.invoke({"question": "What is my name?"}, config=conf
 
 ---
 
-### Conversation Management: Message Trimming (`trim_messages`)
+<details>
+<summary><b>⚠️ Specialized Utility: Context Window Token Trimming (trim_messages)</b></summary>
 
-Prevents context window overflows by trimming history to a target token limit while guaranteeing structural validity (preserving system messages and message pairs):
+#### What It Does
+`trim_messages()` prunes an expanding list of conversation messages to strictly fit within an LLM's maximum token budget. It intelligently preserves the `SystemMessage` at the beginning and guarantees that conversation turns remain structurally valid (e.g., ensuring a chat starts on a `HumanMessage` and keeping tool calls paired with tool outputs).
 
+#### When to Use
+- High-volume, stateless LCEL chatbots with persistent sessions where conversations run across 50+ turns and older messages must be dropped to avoid expensive prompt token costs and model context limit errors.
+
+#### When NOT to Use (Production Reality)
+- **Loss of Long-Term Memory:** Trimming permanently discards past conversation details. For enterprise agents, prefer LangGraph state checkpointing paired with a summarization node, which distills older turns into an evolving conversational synopsis without losing key user facts.
+
+#### Code Example
 ```python
 from langchain_core.messages import trim_messages
 
@@ -689,6 +1559,8 @@ trimmed_history = trim_messages(
     start_on="human"          # Ensure first conversation message is a HumanMessage
 )
 ```
+
+</details>
 
 ---
 
@@ -720,10 +1592,21 @@ response = agent.invoke(
 
 ## 1.10 Stateful Middleware & Human-in-the-Loop (`6-middleware.ipynb`) <a id="middleware-and-hitl" name="middleware-and-hitl"></a>
 
-Middleware intercepts agent execution cycles to enforce guardrails, compress memory, and require human confirmation.
+<details>
+<summary><b>⚠️ Experimental / Advanced: Agent Execution Middleware (SummarizationMiddleware & HumanInTheLoopMiddleware)</b></summary>
 
-### Middleware Type 1 — Summarization (`SummarizationMiddleware`)
+#### What They Do
+Middleware components intercept agent execution cycles to enforce guardrails, compress memory, and require human confirmation:
+- **`SummarizationMiddleware`:** Automatically condenses conversation history once the message count exceeds a trigger threshold.
+- **`HumanInTheLoopMiddleware`:** Pauses the agent loop before executing designated high-risk tools (e.g. `send_email_tool`, `execute_database_write`).
 
+#### When to Use
+- Rapid prototypes using the high-level `create_agent` wrapper where you want quick automatic summarization or basic approval gates without writing custom graph state machines.
+
+#### When NOT to Use (Production Reality)
+- **Enterprise Agentic Architectures:** In production multi-agent systems, use LangGraph's native `interrupt()` function and database-backed `PostgresSaver` checkpointer. LangGraph native interrupts support webhooks, external human review dashboards, distributed workers, and resuming execution from an exact state snapshot across server restarts.
+
+#### Code Example: Summarization Middleware
 ```python
 from langchain.agents import create_agent
 from langchain.agents.middleware import SummarizationMiddleware
@@ -742,8 +1625,7 @@ agent = create_agent(
 )
 ```
 
-### Middleware Type 2 — Human-In-The-Loop (`HumanInTheLoopMiddleware`)
-
+#### Code Example: Human-in-the-Loop Middleware
 ```python
 from langchain.agents import create_agent
 from langchain.agents.middleware import HumanInTheLoopMiddleware
@@ -760,6 +1642,8 @@ agent = create_agent(
     ]
 )
 ```
+
+</details>
 
 </details>
 
@@ -817,16 +1701,19 @@ agent = create_agent(
 
 ---
 
-#### 1. Fixed-size Chunking
-
-Splits every N characters (or words) with optional overlap, ignoring grammatical structure.
-
-- **Best for:** Quick baseline tests or uniform flat data.
-- **Risk:** Cuts words and sentences in half — causes context fragmentation and hallucinations.
-
 <details>
-<summary>Code & Example</summary>
+<summary><b>⚠️ Rarely Used / Primitive: Fixed-size Chunking (Word Slicing Risk)</b></summary>
 
+#### What It Does
+Splits text strictly every N characters or words at fixed arithmetic intervals using `CharacterTextSplitter(separator="")`, with an optional fixed overlap. It completely ignores syntactic structure, sentence endings, and word boundaries.
+
+#### When to Use
+- Quick offline unit test scripts, fixed-length benchmarking, or synthetic performance stress tests.
+
+#### When NOT to Use (Production Reality)
+- **High Hallucination Risk:** Fixed-size splitting slices words in half (e.g. splitting `"retrieval"` into `"retriev"` and `"al"`) and fractures sentences mid-thought. When embedded, fragmented words yield corrupted vector coordinates, completely destroying cosine similarity matches and causing severe LLM hallucinations. In production, always use `RecursiveCharacterTextSplitter`.
+
+#### Code & Example
 ```python
 from langchain_text_splitters import CharacterTextSplitter
 
@@ -854,20 +1741,26 @@ Chunk 2 [60 chars]: 'connects models to external data sources and enables retrie
 Chunk 3 [60 chars]: 'retrieval-augmented generation. Chroma and FAISS are common '
 Chunk 4 [48 chars]: 'common vector stores used for fast similarity search.'
 ```
+
 </details>
 
 ---
 
-#### 2. Sentence-based Chunking
-
-Splits at sentence boundaries (punctuation `.`, `!`, `?` or NLP tokenizers from NLTK/spaCy).
-
-- **Best for:** Precise fact-checking, statement verification, sentence-level quote retrieval.
-- **Risk:** Individual sentences often lack context (pronouns like "it", "they" become unresolvable).
-
 <details>
-<summary>Code & Example</summary>
+<summary><b>⚠️ Rarely Used Alone: Sentence-based Chunking (Context Starvation & Pronoun Loss)</b></summary>
 
+#### What It Does
+Splits text strictly at individual sentence boundaries (punctuation `.`, `!`, `?` or NLP tokenizers like NLTK/spaCy). Each sentence becomes an isolated chunk and is embedded independently into the vector store.
+
+#### When to Use
+- Fine-grained fact-checking datasets, sentence-level quote verification, and strict quote-matching where the goal is retrieving exact single assertions.
+
+#### When NOT to Use (Production Reality & Modern Alternatives)
+- **Severe Context Starvation:** Individual sentences almost always lack surrounding narrative context. Pronouns like *"It caused the error"* or *"They deployed the service"* become unresolvable when isolated, causing LLM generation to hallucinate.
+- **Vector Over-Fragmentation:** Produces thousands of tiny vectors that clutter index memory and fragment coherent paragraphs.
+- **Modern Industrial Alternative:** Use **Sentence Window Retrieval** (index individual sentences for search, but fetch surrounding $\pm k$ sentences for LLM generation) or **Recursive Chunking** (`RecursiveCharacterTextSplitter`) which groups sentences into coherent paragraphs while respecting character limits.
+
+#### Code & Example
 ```python
 import re
 
@@ -891,20 +1784,25 @@ Chunk 2 (Sentence): It fetches relevant knowledge from external vector databases
 Chunk 3 (Sentence): Does this prevent hallucinations?
 Chunk 4 (Sentence): Yes, by grounding answers in retrieved source text.
 ```
+
 </details>
 
 ---
 
-#### 3. Paragraph-based Chunking
-
-Uses double newlines (`\n\n`) to segment text, preserving the author's original thought units.
-
-- **Best for:** Well-formatted editorial content, blog posts, essays, reports.
-- **Risk:** Paragraph lengths vary wildly — one may be 20 tokens, another 2,000+ (exceeds LLM context limits).
-
 <details>
-<summary>Code & Example</summary>
+<summary><b>⚠️ Rarely Used Alone: Paragraph-based Chunking (Unpredictable Chunk Size Risk)</b></summary>
 
+#### What It Does
+Uses double newlines (`\n\n`) to segment text along author-authored paragraph boundaries, keeping each written paragraph as a single chunk.
+
+#### When to Use
+- Highly curated, consistently formatted editorial content (e.g. news articles, standard blog posts) where every paragraph is known to be between 100 and 300 words.
+
+#### When NOT to Use (Production Reality & Modern Alternatives)
+- **Uncontrolled Chunk Sizes:** Real-world documents have extreme variance in paragraph length—a paragraph might be a single 5-word sentence or a 3,000-word uninterrupted legal clause. This either creates tiny micro-chunks or massive blocks that blow past embedding token limits and cause vector dilution ("lost-in-the-middle").
+- **Modern Industrial Alternative:** Always use `RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=150)`. It uses `\n\n` as its *primary* separator to keep paragraphs intact, but safely sub-splits oversized paragraphs into sentences (`\n`) and words (` `) when necessary.
+
+#### Code & Example
 ```python
 from langchain_text_splitters import CharacterTextSplitter
 
@@ -936,6 +1834,7 @@ Retrieval-Augmented Generation (RAG) is a prominent architecture that combines i
 --- Chunk 3 (Paragraph) ---
 Vector databases act as the memory layer in RAG systems, enabling sub-second semantic retrieval across millions of embeddings.
 ```
+
 </details>
 
 ---
@@ -1101,16 +2000,19 @@ Discovers inherent groupings or patterns in unlabeled data.
 
 ---
 
-#### 7. Sliding-window Chunking
-
-Slides a fixed-size window forward by a smaller step (stride). A window of size W with stride S produces an overlap of W-S tokens across consecutive chunks — no boundary transitions are lost.
-
-- **Best for:** Continuous text streams, conversation transcripts, medical records, legal contracts.
-- **Risk:** High storage and vector compute overhead due to repeated text.
-
 <details>
-<summary>Code & Example</summary>
+<summary><b>⚠️ Specialized / High Redundancy: Sliding-window Chunking</b></summary>
 
+#### What It Does
+Slides a fixed-size window of size $W$ forward by a smaller step/stride $S$, creating an intentional overlap of $W - S$ across consecutive chunks. Every boundary transition is captured in at least two adjacent chunks.
+
+#### When to Use
+- Sequential temporal data streams, audio transcription logs, chronological medical event feeds, and high-stakes legal contracts where missed transitions carry severe legal liabilities.
+
+#### When NOT to Use (Production Reality)
+- **High Vector Store & Cost Overhead:** Generates 2x–4x more chunks than standard chunking, multiplying vector database indexing costs, embedding API expenses, and memory requirements. In production RAG, a standard `RecursiveCharacterTextSplitter` with 10%–15% chunk overlap achieves 95%+ of the same boundary safety at a fraction of the cost.
+
+#### Code & Example
 ```python
 def sliding_window_chunking(text: str, window_size: int = 50, stride: int = 30):
     words = text.split()
@@ -1140,20 +2042,25 @@ Window 2: Eta Theta Iota Kappa Lambda Mu Nu Xi Omicron Pi
 Window 3: Nu Xi Omicron Pi Rho Sigma Tau Upsilon Phi Chi
 Window 4: Tau Upsilon Phi Chi Psi Omega
 ```
+
 </details>
 
 ---
 
-#### 8. Token-based Chunking
-
-Splits by token counts using the target LLM's exact BPE tokenizer (e.g., `tiktoken` for OpenAI `cl100k_base` / `o200k_base`).
-
-- **Best for:** Strict LLM context window budgeting, preventing API token limit errors, accurate cost tracking.
-- **Risk:** May split mid-word or mid-sentence without recursive fallback.
-
 <details>
-<summary>Code & Example</summary>
+<summary><b>⚠️ Specialized Utility: Token-based Chunking (Token Budgeting vs. Syntax Fracture)</b></summary>
 
+#### What It Does
+Splits text strictly according to token count using the target LLM's exact BPE (Byte Pair Encoding) tokenizer (such as `tiktoken` with `cl100k_base` or `o200k_base`). It guarantees that each chunk fits inside an exact token budget.
+
+#### When to Use
+- Hard token limits and strict context budgeting where exceeding a token threshold by even a single token causes an API exception, or when calculating per-token API costs down to the exact penny.
+
+#### When NOT to Use (Production Reality & Modern Alternatives)
+- **Word & Sentence Fracturing:** Raw `TokenTextSplitter` does not respect linguistic boundaries. It splits blindly across sentences and can split individual words into disjoint subword tokens, corrupting embedding representations.
+- **Modern Industrial Alternative:** Use `RecursiveCharacterTextSplitter.from_tiktoken_encoder(chunk_size=500, chunk_overlap=50)`. This gives the best of both worlds: it measures length in exact LLM tokens while using paragraph (`\n\n`), sentence (`\n`), and word (` `) separators to preserve semantic readability.
+
+#### Code & Example
 ```python
 from langchain_text_splitters import TokenTextSplitter
 
@@ -1188,20 +2095,24 @@ Token Chunk 3:
 Token Chunk 4:
 ' prompts with fixed LLM context window constraints.'
 ```
+
 </details>
 
 ---
 
-#### 9. Agentic / LLM-based Chunking
-
-Uses an LLM as an intelligent chunking agent. The model reads the document, reasons about semantic boundaries, and outputs clean self-contained sections with context, summaries, or titles.
-
-- **Best for:** Complex, messy, highly technical documents where rule-based splitters fail (mixed tables, contracts, research summaries).
-- **Risk:** Substantial inference cost and high processing latency per document.
-
 <details>
-<summary>Code & Example</summary>
+<summary><b>⚠️ High-Latency & Cost-Prohibitive: Agentic / LLM-based Chunking</b></summary>
 
+#### What It Does
+Uses a generative LLM as an intelligent preprocessing agent. The model reads the full document, identifies semantic shifts, resolves dangling pronouns, and outputs standalone, contextualized chunks with titles and metadata.
+
+#### When to Use
+- High-value, low-volume corporate archives, legal constitutions, or complex multi-topic whitepapers where rule-based heuristics completely fail.
+
+#### When NOT to Use (Production Reality)
+- **Extreme Ingestion Latency & API Cost:** Ingesting 10,000 document pages with agentic LLM chunking requires millions of prompt tokens, costing hundreds of dollars in API bills and taking hours. For scalable production RAG, use `SemanticChunker` (cheap sentence embeddings) or `MarkdownHeaderTextSplitter` + `RecursiveCharacterTextSplitter`.
+
+#### Code & Example
 ```python
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
@@ -1261,6 +2172,7 @@ print(mock_response)
   ]
 }
 ```
+
 </details>
 
 ---
@@ -1923,9 +2835,17 @@ print()
 ### 3. InMemoryVectorStore (`8.3-Othervectorstores.ipynb`)
 
 <details>
-<summary>Code & Implementation: InMemoryVectorStore (Lightweight In-Memory Testing & LCEL)</summary>
+<summary><b>⚠️ Test-Only / Ephemeral: InMemoryVectorStore (Prototyping & Unit Testing Only — Never For Production)</b></summary>
 
-`InMemoryVectorStore` is the standard, ultra-lightweight, zero-dependency in-memory vector store shipped inside `langchain-core` for unit testing, demos, and ephemeral scripts.
+#### What It Does
+`InMemoryVectorStore` is a zero-dependency, dictionary-backed vector store included directly in `langchain-core`. It keeps vectors and document metadata in Python heap RAM.
+
+#### When to Use
+- **Automated Unit Tests & CI/CD Pipelines:** When verifying LCEL chain logic without running external Docker containers or spinning up external database connections.
+- **Quick 5-minute prototypes & interactive scratch notebooks.**
+
+#### When NOT to Use (Production Reality)
+- **Never use in production:** It lacks persistence (all data is lost when the server restarts or worker crashes), performs brute-force $O(N)$ linear scans that degrade above a few hundred documents, and cannot scale across multi-worker web servers. Use FAISS/Chroma for local persistence, or Pinecone/Qdrant/Milvus for cloud production.
 
 **Installation:**
 ```bash
@@ -2096,9 +3016,16 @@ for doc in retrieved_docs:
 ### 5. DataStax AstraDB (`8.5-Datastaxdb+(1).ipynb`)
 
 <details>
-<summary>Code & Implementation: DataStax AstraDB (Managed Apache Cassandra Vector DB)</summary>
+<summary><b>⚠️ Niche / Managed Cloud DB: DataStax AstraDB (Cassandra-Based Vector Store)</b></summary>
 
-DataStax AstraDB is a cloud-native, multi-model vector database built on Apache Cassandra, offering massive horizontal scalability, NoSQL + Vector hybrid capabilities, and multi-region replication.
+#### What It Does
+DataStax AstraDB is a cloud-native, serverless vector database built on top of Apache Cassandra, combining NoSQL tabular persistence with vector indexing and multi-region replication.
+
+#### When to Use
+- Organizations already deeply invested in the Apache Cassandra ecosystem who need unified NoSQL document/tabular storage alongside vector similarity search in a single managed cloud database.
+
+#### When NOT to Use (Production Reality)
+- **High Complexity for Pure RAG:** For standard RAG architectures, dedicated purpose-built vector stores like Pinecone or Qdrant, or lightweight Postgres extensions (`pgvector`), are simpler to configure, cheaper at small-to-medium scale, and have wider community adoption.
 
 **Installation:**
 ```bash
@@ -2601,11 +3528,17 @@ Retrieved Doc 2: Agentic systems utilize memory checkpoints and human-in-the-loo
 
 ---
 
-<details><summary><a id="topic-10-query-decomposition" name="topic-10-query-decomposition"></a>Phase 5.2 — Query Decomposition: Breaking Complex Questions into Targeted Sub-Queries</summary>
+<details><summary><a id="topic-10-query-decomposition" name="topic-10-query-decomposition"></a><b>⚠️ High-Latency / Multi-Hop Technique: Query Decomposition (Breaking Complex Questions into Sub-Queries)</b></summary>
 
-## What is Query Decomposition?
+#### What It Does
+**Query Decomposition** takes a complex, multi-concept or comparative user question and uses an LLM to programmatically break it down into multiple independent, atomic sub-questions that can be retrieved and reasoned over individually before final synthesis.
 
-**Query Decomposition** takes a complex, multi-part user question and breaks it down into simpler, atomic sub-questions that can be retrieved and answered individually.
+#### When to Use
+- **Multi-Hop & Comparative Queries:** Questions that inherently require cross-referencing two distinct topics (e.g. *"Compare the security architecture of AWS GuardDuty vs Azure Sentinel"*).
+- Complex analytical questions where a single combined query vector averages out semantic nuances and misses documents on either topic.
+
+#### When NOT to Use (Production Reality & Latency Overhead)
+- **High Latency & Token Multiplier:** Decomposing into 3 sub-queries triggers $1 \text{ (decomp)} + 3 \times \text{retrieval} + 3 \times \text{LLM answer} + 1 \text{ (synthesis)} = 5$ distinct LLM calls per user query. This can drive latency up to 5–10 seconds. For high-throughput chatbots, prefer Hybrid Search + Cross-Encoder Reranking unless multi-hop decomposition is strictly required.
 
 ---
 
@@ -2729,21 +3662,19 @@ LangChain memory focuses on persisting conversational history across interaction
 
 ---
 
-<details><summary><a id="topic-11-hyde" name="topic-11-hyde"></a>Phase 5.3 — HyDE: Hypothetical Document Embeddings</summary>
+<details><summary><a id="topic-11-hyde" name="topic-11-hyde"></a><b>⚠️ Specialized / High-Latency Technique: HyDE (Hypothetical Document Embeddings)</b></summary>
 
-## What is HyDE?
+#### What It Does
+**HyDE (Hypothetical Document Embeddings)** bridges the semantic vocabulary gap between short user queries and detailed source documents. Instead of embedding a user's raw question directly, HyDE uses an LLM to generate a plausible, hypothetical answer passage, converts that synthetic passage into a vector embedding, and uses that embedding to search the vector database for real documents.
 
-**HyDE (Hypothetical Document Embeddings)** is an advanced RAG technique. Instead of embedding a user's raw query directly, HyDE uses an LLM to first generate a **hypothetical answer (document)**, then embeds that generated document to search the vector database.
+#### When to Use
+- **Severe Vocabulary & Syntax Mismatch:** When user questions are very short or formulated in informal phrasing that does not appear verbatim in source manuals, but a hypothetical answer paragraph shares vocabulary with stored documents.
+- **Answer-Centric Retrieval:** When retrieving long explanatory paragraphs or encyclopedia entries where matching the structural shape and tone of an answer outperforms matching raw question keywords.
 
-**Core Goal:** Bridge the semantic gap between how users ask questions and how information is phrased in source documents.
-
----
-
-## When to Use HyDE
-
-- **Short queries** — user input lacks rich context or detail.
-- **Language/phrasing mismatch** — the vocabulary in the question differs from the target documents.
-- **Answer-centric retrieval** — you need to retrieve content based on what an *answer* looks like, not matching question keywords.
+#### When NOT to Use (Production Reality & Modern Alternatives)
+- **Hallucination Amplification Risk:** If the LLM generates plausible-sounding but factually incorrect details or fabricated identifiers in the hypothetical document, the embedding drifts toward those hallucinated coordinates, causing the vector database to retrieve completely irrelevant or wrong documents.
+- **Significant Latency & Cost Overhead:** HyDE forces an extra generative LLM roundtrip *before* vector search can even begin (+1,000–2,500ms latency and additional API tokens per query).
+- **Modern Industrial Alternative:** Use **Dense + Sparse Hybrid Search (BM25 + Dense Embeddings via Reciprocal Rank Fusion)** paired with a **Cross-Encoder Re-Ranker**. Hybrid search captures both semantic meaning and exact keyword tokens at 10x lower latency with zero hallucination risk.
 
 ---
 
@@ -2774,11 +3705,10 @@ LangChain memory focuses on persisting conversational history across interaction
 | **Plug-and-Play** | Easy to integrate with existing providers (OpenAI, Cohere, HuggingFace) |
 
 <img width="515" height="231" alt="HyDE Architecture" src="https://github.com/user-attachments/assets/26307b0f-6aa7-4595-a621-41db55476ab7" />
+
 ---
 
-### Implementation: Hypothetical Document Embeddings (HyDE)
-
-#### Imports
+#### Code & Example
 ```python
 from langchain.chat_models import init_chat_model
 from langchain_core.prompts import PromptTemplate
@@ -3320,78 +4250,50 @@ Rank 2: LangChain memory manages conversational context and history across multi
 
 ---
 
-<details><summary><a id="topic-8-mmr" name="topic-8-mmr"></a>Phase 6.3 — MMR: Maximal Marginal Relevance</summary>
+<details><summary><a id="topic-8-mmr" name="topic-8-mmr"></a><b>⚠️ Specialized Diversity Search: Maximal Marginal Relevance (MMR)</b></summary>
 
-## What is MMR?
+#### What It Does
+**Maximal Marginal Relevance (MMR)** is a diversity-aware retrieval algorithm designed to eliminate redundant, near-duplicate chunks from vector search results. Instead of returning the raw top-$k$ nearest neighbors (which often repeat identical phrases), MMR iteratively selects chunks by balancing **relevance to the query** against **novelty relative to already-selected documents**.
 
-**Maximal Marginal Relevance (MMR)** is a diversity-aware retrieval technique used in RAG pipelines.
+#### When to Use
+- **Redundancy Suppression in Dense Corpora:** When multiple chunks in the vector store contain near-identical wording (e.g., repeated legal clauses, recurring boilerplate headers, or duplicate FAQ variations).
+- **Broad Information Discovery:** When users ask exploratory questions (e.g., *"Overview of LangChain features"*) and need diverse topic coverage rather than multiple paragraphs explaining the exact same concept.
 
-**Aim:** Balance **relevance** and **novelty** — prevent returning highly similar documents that repeat the same content. Ensures selected documents are both:
-1. Relevant to the user's query.
-2. Diverse from one another (non-redundant).
+#### When NOT to Use (Production Reality & Modern Alternatives)
+- **Precision-Critical & Factoid Queries:** If a user asks for an exact error code, financial number, or specific API signature, MMR can penalize and demote the true second-most relevant chunk simply because it shares vocabulary with the first chunk, substituting an irrelevant chunk for "diversity".
+- **Compute Overhead on Large Pools:** MMR performs $O(k \cdot \text{fetch\_k})$ pairwise cosine distance computations in Python RAM, adding query latency.
+- **Superceded by Cross-Encoder Re-Ranking:** In modern enterprise RAG, a Cross-Encoder Re-Ranker (e.g. Cohere Rerank or `bge-reranker-large`) evaluates cross-attention across candidates and naturally selects the highest-signal chunks without sacrificing retrieval precision.
 
 ---
 
-## The MMR Formula
+## The MMR Formula & Step-by-Step Walkthrough
 
 $$\text{MMR}(d) = \lambda \cdot \text{sim}(d, q) - (1 - \lambda) \cdot \max_{s \in S} \text{sim}(d, s)$$
 
 **Parameters:**
 - $q$ — the user query
-- $d$ — a candidate document from set $D$
-- $S$ — the set of documents already selected
-- $\text{sim}(a, b)$ — the similarity function (e.g., Cosine Similarity)
-- $\lambda$ (Lambda) — tunable between 0 and 1:
-  - Higher $\lambda$ → prioritizes **relevance** to the query
-  - Lower $\lambda$ → prioritizes **diversity** among documents
+- $d$ — a candidate document from candidate pool $D$ (size `fetch_k`)
+- $S$ — the set of documents already selected (target size $k$)
+- $\text{sim}(a, b)$ — similarity function (e.g., Cosine Similarity)
+- $\lambda$ (Lambda) — tunable trade-off parameter between 0 and 1:
+  - Higher $\lambda \to 1.0$ prioritizes **relevance** to the query (standard similarity)
+  - Lower $\lambda \to 0.0$ prioritizes **diversity** among selected documents
+
+### Step-by-Step Selection Walkthrough
+
+Three candidates (D1, D2, D3), selecting top 2 using MMR ($\lambda = 0.7$):
+- **Initial Query Relevance (Cosine Similarity):** $\text{sim}(D1, Q) = 0.95$, $\text{sim}(D2, Q) = 0.93$, $\text{sim}(D3, Q) = 0.80$
+- **Step 1:** Select D1 first (highest raw query similarity = 0.95). $S = \{D1\}$.
+- **Step 2:** Measure redundancy with D1: $\text{sim}(D1, D2) = 0.90$ (redundant), $\text{sim}(D1, D3) = 0.30$ (diverse).
+- **Calculate MMR Scores:**
+  - $\text{MMR}(D2) = (0.7 \times 0.93) - (0.3 \times 0.90) = 0.651 - 0.270 = \mathbf{0.381}$
+  - $\text{MMR}(D3) = (0.7 \times 0.80) - (0.3 \times 0.30) = 0.560 - 0.090 = \mathbf{0.470}$
+- **Result:** Even though D2 had higher raw similarity to the query, **D3 is selected** because D2 was too redundant with D1.
+- **Final Selected Rank:** 1. D1 | 2. D3
 
 ---
 
-## Step-by-Step Example
-
-Three candidates (D1, D2, D3), selecting top 2 using MMR.
-
-**Initial Query Relevance (Cosine Similarity):**
-- sim(D1, Q) = 0.95
-- sim(D2, Q) = 0.93
-- sim(D3, Q) = 0.80
-
-**Step 1:** Pick D1 first — highest raw similarity score (0.95).
-
-**Calculating Diversity (Similarity to D1):**
-- sim(D1, D2) = 0.90 — Highly redundant
-- sim(D1, D3) = 0.30 — Highly diverse
-
-**Step 2:** Calculate MMR for remaining candidates with lambda = 0.7:
-
-$$\text{MMR}(D2) = (0.7 \times 0.93) - (0.3 \times 0.90) = 0.651 - 0.270 = \mathbf{0.381}$$
-
-$$\text{MMR}(D3) = (0.7 \times 0.80) - (0.3 \times 0.30) = 0.560 - 0.090 = \mathbf{0.470}$$
-
-**Result:** Even though D2 is more relevant (0.93 vs 0.80), **D3 is selected** as the second document.
-
-**Final Rank: 1. D1 | 2. D3**
-
-**Reason:** D3 provides the best balance of diversity and relevance — D2 was too redundant with D1.
-
----
-
-## When to Use vs. When NOT to Use MMR
-
-| Scenario | Details |
-| :--- | :--- |
-| **Use — RAG Pipelines** | Avoids feeding LLMs redundant documents → richer, more useful context |
-| **Use — Chatbots & Search Apps** | Great for FAQs, document browsers needing broad topic coverage |
-| **Use — Hybrid Retrieval** | Works well combining Dense + Sparse search strategies |
-| **Skip — Extremely Short Context** | If you only want the single top-1 most relevant document |
-| **Skip — Precision Only** | When focused strictly on accuracy, not topic coverage |
-| **Skip — Pre-existing Diversity** | If source documents are already inherently diverse |
-| **Skip — LLM Reranking** | If redundancy is already handled downstream by an LLM post-filter |
----
-
-### Implementation: Maximal Marginal Relevance (MMR) Search
-
-#### Imports
+#### Code & Example
 ```python
 from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -3466,9 +4368,21 @@ $$	ext{MMR}(d) = \lambda \cdot 	ext{sim}(d, q) - (1 - \lambda) \cdot \max_{s \in
 
 ---
 
-<details><summary><a id="topic-parent-retrieval" name="topic-parent-retrieval"></a>Phase 6.4 — Parent Document Retrieval (Small-to-Big Hierarchical Search)</summary>
+<details><summary><a id="topic-parent-retrieval" name="topic-parent-retrieval"></a><b>⚠️ Specialized Hierarchical Search: ParentDocumentRetriever (Small-to-Big Retrieval)</b></summary>
 
-# Phase 6.4: Parent Document Retrieval (`ParentDocumentRetriever`)
+#### What It Does
+**Parent Document Retrieval (Small-to-Big Search)** decouples the representation used for vector search from the representation passed to the generative LLM. It indexes small, laser-focused **child chunks** ($\sim 100-300$ tokens) in the vector database for surgical semantic matching, while persisting the wider enclosing **parent document or chunk** ($\sim 1,000-2,000$ tokens) in a Key-Value Document Store (`InMemoryStore`, `LocalFileStore`, Redis). When a child chunk matches the query, the retriever automatically looks up and delivers the complete parent chunk to the LLM.
+
+#### When to Use
+- **Technical Manuals, Legal Codes & Financial Filings:** Documents where specific numerical facts, clauses, or error codes require fine-grained search vectors, but the LLM needs paragraphs of surrounding context, definitions, and legal caveats to reason correctly.
+- **Resolving Pronoun & Context Fragmentation:** Eliminates "lost context" where a small chunk contains "It shall be revoked immediately" without stating what "It" refers to.
+
+#### When NOT to Use (Production Reality & Modern Alternatives)
+- **Dual-Storage Operational Complexity:** Requires synchronizing two independent database layers: a Vector Store (Chroma, FAISS, Pinecone) AND a Document Store (Redis, SQLite, S3). Updates, deletions, and TTL cache evictions must be maintained atomically across both.
+- **Context Window & Cost Multiplier:** If top-$k$ search returns 3 child chunks from 3 different parent sections, feeding three 2,000-token parents injects 6,000 tokens into the prompt, multiplying token costs and increasing LLM generation latency.
+- **Modern Industrial Alternative:** Standard recursive chunking ($\sim 600-800$ tokens, 15% overlap) paired with a **Cross-Encoder Re-Ranker** achieves comparable precision at a fraction of the architectural complexity.
+
+---
 
 ## 🎯 The Core Trade-off in Standard Chunking: Precision vs. Context
 
@@ -3720,6 +4634,20 @@ print("RAG Response:\n", response)
 
 ### Step 2 — Advanced Conversational RAG with Chat History
 
+<details>
+<summary><b>⚠️ Classic Pre-Built Chains: create_history_aware_retriever & create_retrieval_chain</b></summary>
+
+#### What It Does
+Provides high-level factory functions (`create_history_aware_retriever`, `create_retrieval_chain`, `create_stuff_documents_chain`) that bundle question reformulation, document retrieval, and answer synthesis into a monolithic dictionary-in/dictionary-out chain object without requiring manual LCEL pipe assembly.
+
+#### When to Use
+- Quick prototyping, educational notebooks, or maintaining codebases that expect standard dictionary outputs (`response["answer"]` and `response["context"]`).
+
+#### When NOT to Use (Production Reality & Modern Alternatives)
+- **Opaque & Inflexible:** Pre-built chains hide document formatting and intermediate steps under the hood. Adding custom cross-encoders, dynamic metadata filters, or token streaming requires awkward monkey-patching.
+- **Modern Industrial Alternative:** For production, build conversational RAG using **Pure LCEL** with `RunnableWithMessageHistory` (see [Blueprint 1](#top-blueprints)) or **LangGraph** with state checkpoints.
+
+#### Code & Example
 ```python
 from langchain_core.prompts import MessagesPlaceholder
 from langchain_core.messages import HumanMessage, AIMessage
@@ -3771,6 +4699,8 @@ q2 = "What are its main subsets mentioned in the context?"
 res2 = rag_conversational_chain.invoke({"input": q2, "chat_history": chat_history})
 print("Turn 2 Answer:", res2["answer"])
 ```
+
+</details>
 
 ---
 
